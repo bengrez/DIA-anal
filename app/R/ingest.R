@@ -12,6 +12,45 @@ normalize_name <- function(x) {
   x
 }
 
+default_tipo_order <- function(tipos) {
+  tipos <- as.character(tipos %||% character())
+  if (length(tipos) == 0) return(character())
+
+  key <- normalize_name(tipos)
+  desired <- c("diagnostico", "intermedio", "cierre")
+  pick <- character()
+  for (d in desired) {
+    idx <- which(key == d)
+    if (length(idx) > 0) pick <- c(pick, tipos[idx[[1]]])
+  }
+  c(pick, setdiff(tipos, pick))
+}
+
+apply_factor_orders <- function(df, tipo_levels = NULL, nivel_levels = NULL) {
+  df$tipo <- as.character(df$tipo)
+  df$nivel_logro <- as.character(df$nivel_logro)
+
+  all_tipos <- sort(unique(df$tipo))
+  if (!is.null(tipo_levels)) {
+    tipo_levels <- unique(as.character(tipo_levels))
+    tipo_levels <- c(tipo_levels, setdiff(all_tipos, tipo_levels))
+  } else {
+    tipo_levels <- default_tipo_order(all_tipos)
+  }
+
+  all_niveles <- sort(unique(df$nivel_logro[!is.na(df$nivel_logro) & nzchar(df$nivel_logro)]))
+  if (!is.null(nivel_levels)) {
+    nivel_levels <- unique(as.character(nivel_levels))
+    nivel_levels <- c(nivel_levels, setdiff(all_niveles, nivel_levels))
+  } else {
+    nivel_levels <- all_niveles
+  }
+
+  df$tipo <- factor(df$tipo, levels = tipo_levels)
+  df$nivel_logro <- factor(df$nivel_logro, levels = nivel_levels)
+  df
+}
+
 required_spec <- function() {
   list(
     year = c("year"),

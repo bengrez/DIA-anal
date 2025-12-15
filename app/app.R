@@ -42,71 +42,86 @@ ui <- page_sidebar(
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   sidebar = sidebar(
     width = 360,
-    card(
-      card_header("1) Carga de datos (Excel .xlsx)"),
-      fileInput("file1", "Archivo 1 (obligatorio)", accept = ".xlsx"),
-      uiOutput("sheet1_ui"),
-      fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
-      uiOutput("sheet2_ui"),
-      checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
-      hr(),
-      uiOutput("summary_ui")
-    ),
-    card(
-      card_header("2) Gráfico"),
-      selectInput(
-        "plot_type",
-        "Tipo de gráfico",
-        choices = c(
-          "A) Promedio por curso y Tipo" = "promedio",
-          "B) Distribución" = "distribucion",
-          "C) Nivel de logro" = "nivel_logro",
-          "D) Crecimiento por estudiante (delta)" = "crecimiento"
+    accordion(
+      id = "sidebar_acc",
+      open = "load",
+      accordion_panel(
+        title = "1) Carga de datos (Excel .xlsx)",
+        value = "load",
+        fileInput("file1", "Archivo 1 (obligatorio)", accept = ".xlsx"),
+        uiOutput("sheet1_ui"),
+        fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
+        uiOutput("sheet2_ui"),
+        checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
+        hr(),
+        uiOutput("summary_ui")
+      ),
+      accordion_panel(
+        title = "2) Gráfico",
+        value = "plot",
+        selectInput(
+          "plot_type",
+          "Tipo de gráfico",
+          choices = c(
+            "A) Promedio por curso y Tipo" = "promedio",
+            "B) Distribución" = "distribucion",
+            "C) Nivel de logro" = "nivel_logro",
+            "D) Crecimiento por estudiante (delta)" = "crecimiento"
+          )
+        ),
+        uiOutput("filters_ui"),
+        hr(),
+        selectInput(
+          "facet",
+          "Facets",
+          choices = c(
+            "OFF" = "off",
+            "Por Curso" = "curso",
+            "Por Tipo" = "tipo",
+            "Por Año" = "year",
+            "Por Eje" = "eje"
+          ),
+          selected = "off"
         )
       ),
-      uiOutput("filters_ui"),
-      hr(),
-      selectInput(
-        "facet",
-        "Facets",
-        choices = c(
-          "OFF" = "off",
-          "Por Curso" = "curso",
-          "Por Tipo" = "tipo",
-          "Por Año" = "year",
-          "Por Eje" = "eje"
+      accordion_panel(
+        title = "3) Orden y transparencia",
+        value = "order",
+        uiOutput("order_ui"),
+        hr(),
+        sliderInput("alpha_bars", "Transparencia (barras)", min = 0.1, max = 1, value = 0.85, step = 0.05),
+        sliderInput("alpha_lines", "Transparencia (líneas)", min = 0.1, max = 1, value = 0.9, step = 0.05)
+      ),
+      accordion_panel(
+        title = "4) Estilo y exportación",
+        value = "style",
+        selectInput(
+          "style_preset",
+          "Plantilla de estilo",
+          choices = c(
+            "Informe clásico" = "classic",
+            "Minimal" = "minimal",
+            "Oscuro" = "dark",
+            "Alto contraste" = "contrast"
+          ),
+          selected = "classic"
         ),
-        selected = "off"
+        selectInput("palette_fill", "Paleta (fill)", choices = available_palettes(), selected = "Okabe-Ito"),
+        selectInput("palette_color", "Paleta (color)", choices = available_palettes(), selected = "Okabe-Ito"),
+        hr(),
+        textInput("title", "Título", value = ""),
+        textInput("subtitle", "Subtítulo", value = ""),
+        textInput("xlab", "Eje X", value = ""),
+        textInput("ylab", "Eje Y", value = ""),
+        hr(),
+        selectInput(
+          "export_res",
+          "Resolución PNG",
+          choices = c("Baja (1200×800)" = "low", "Media (2000×1300)" = "med", "Alta (3200×2100)" = "high"),
+          selected = "med"
+        ),
+        downloadButton("download_png", "Descargar PNG")
       )
-    ),
-    card(
-      card_header("3) Estilo y exportación"),
-      selectInput(
-        "style_preset",
-        "Plantilla de estilo",
-        choices = c(
-          "Informe clásico" = "classic",
-          "Minimal" = "minimal",
-          "Oscuro" = "dark",
-          "Alto contraste" = "contrast"
-        ),
-        selected = "classic"
-      ),
-      selectInput("palette_fill", "Paleta (fill)", choices = available_palettes(), selected = "Okabe-Ito"),
-      selectInput("palette_color", "Paleta (color)", choices = available_palettes(), selected = "Okabe-Ito"),
-      hr(),
-      textInput("title", "Título", value = ""),
-      textInput("subtitle", "Subtítulo", value = ""),
-      textInput("xlab", "Eje X", value = ""),
-      textInput("ylab", "Eje Y", value = ""),
-      hr(),
-      selectInput(
-        "export_res",
-        "Resolución PNG",
-        choices = c("Baja (1200×800)" = "low", "Media (2000×1300)" = "med", "Alta (3200×2100)" = "high"),
-        selected = "med"
-      ),
-      downloadButton("download_png", "Descargar PNG")
     )
   ),
   layout_columns(
@@ -190,8 +205,45 @@ server <- function(input, output, session) {
       cursos = sort(unique(df$curso)),
       tipos = sort(unique(df$tipo)),
       years = sort(unique(df$year)),
+      niveles = sort(unique(df$nivel_logro[!is.na(df$nivel_logro) & nzchar(df$nivel_logro)])),
       ejes = detect_axes(df),
       fuentes = sort(unique(df$fuente))
+    )
+  })
+
+  output$order_ui <- renderUI({
+    ch <- choices()
+    tipo_selected <- isolate(input$tipo_order)
+    if (is.null(tipo_selected) || length(tipo_selected) == 0) {
+      tipo_selected <- default_tipo_order(ch$tipos)
+    } else {
+      tipo_selected <- c(tipo_selected, setdiff(ch$tipos, tipo_selected))
+    }
+
+    nivel_selected <- isolate(input$nivel_order)
+    if (is.null(nivel_selected) || length(nivel_selected) == 0) {
+      nivel_selected <- ch$niveles
+    } else {
+      nivel_selected <- c(nivel_selected, setdiff(ch$niveles, nivel_selected))
+    }
+
+    tagList(
+      selectizeInput(
+        "tipo_order",
+        "Orden de Tipo (arrastra para reordenar)",
+        choices = ch$tipos,
+        selected = tipo_selected,
+        multiple = TRUE,
+        options = list(plugins = list("drag_drop", "remove_button"), persist = TRUE)
+      ),
+      selectizeInput(
+        "nivel_order",
+        "Orden NIVEL DE LOGRO (arrastra para reordenar)",
+        choices = ch$niveles,
+        selected = nivel_selected,
+        multiple = TRUE,
+        options = list(plugins = list("drag_drop", "remove_button"), persist = TRUE)
+      )
     )
   })
 
@@ -332,7 +384,11 @@ server <- function(input, output, session) {
     if (!is.null(input$tipo) && !identical(input$plot_type, "crecimiento")) {
       df <- df %>% filter(.data$tipo %in% input$tipo)
     }
-    df
+    apply_factor_orders(
+      df,
+      tipo_levels = input$tipo_order %||% NULL,
+      nivel_levels = input$nivel_order %||% NULL
+    )
   })
 
   current_plot <- reactive({
@@ -370,6 +426,7 @@ server <- function(input, output, session) {
         ejes = input$eje,
         facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
+        alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
       )
     } else if (identical(input$plot_type, "distribucion")) {
@@ -379,6 +436,9 @@ server <- function(input, output, session) {
         kind = input$dist_kind %||% "box",
         facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
+        palette_color = input$palette_color,
+        alpha_bars = input$alpha_bars %||% 0.85,
+        alpha_lines = input$alpha_lines %||% 0.9,
         plot_theme = plot_theme
       )
     } else if (identical(input$plot_type, "nivel_logro")) {
@@ -386,6 +446,7 @@ server <- function(input, output, session) {
         df = df,
         facet = input$facet %||% "tipo",
         palette_fill = input$palette_fill,
+        alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
       )
     } else if (identical(input$plot_type, "crecimiento")) {
@@ -401,6 +462,8 @@ server <- function(input, output, session) {
         facet = input$facet %||% "curso",
         palette_fill = input$palette_fill,
         palette_color = input$palette_color,
+        alpha_bars = input$alpha_bars %||% 0.85,
+        alpha_lines = input$alpha_lines %||% 0.9,
         plot_theme = plot_theme
       )
     } else {

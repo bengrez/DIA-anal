@@ -1,9 +1,13 @@
-plot_nivel_logro <- function(df, facet, palette_fill, plot_theme) {
+plot_nivel_logro <- function(df, facet, palette_fill, alpha_bars, plot_theme) {
   df_count <- df %>%
     filter(!is.na(.data$nivel_logro), nzchar(.data$nivel_logro)) %>%
     count(.data$year, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
 
-  df_count$nivel_logro <- factor(df_count$nivel_logro)
+  base_levels <- sort(unique(df$nivel_logro[!is.na(df$nivel_logro) & nzchar(df$nivel_logro)]))
+  if (is.factor(df$nivel_logro)) {
+    base_levels <- levels(droplevels(df$nivel_logro))
+  }
+  df_count$nivel_logro <- factor(df_count$nivel_logro, levels = base_levels)
   levels_fill <- levels(df_count$nivel_logro)
   colors <- palette_values(length(levels_fill), palette_fill)
   names(colors) <- levels_fill
@@ -12,7 +16,7 @@ plot_nivel_logro <- function(df, facet, palette_fill, plot_theme) {
     df_count <- df_count %>% mutate(curso_tipo = paste(.data$curso, .data$tipo, .data$year, sep = " | "))
     return(
       ggplot(df_count, aes(x = .data$curso_tipo, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill") +
+        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
         scale_y_continuous(labels = scales::percent) +
         scale_fill_manual(values = colors) +
         labs(x = "Curso | Tipo | Año", y = "Proporción", fill = "Nivel de logro") +
@@ -24,7 +28,7 @@ plot_nivel_logro <- function(df, facet, palette_fill, plot_theme) {
   if (identical(facet, "curso")) {
     return(
       ggplot(df_count, aes(x = .data$tipo, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill") +
+        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
         scale_y_continuous(labels = scales::percent) +
         scale_fill_manual(values = colors) +
         facet_wrap(~curso) +
@@ -36,7 +40,7 @@ plot_nivel_logro <- function(df, facet, palette_fill, plot_theme) {
   if (identical(facet, "year")) {
     return(
       ggplot(df_count, aes(x = .data$curso, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill") +
+        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
         scale_y_continuous(labels = scales::percent) +
         scale_fill_manual(values = colors) +
         facet_wrap(~year) +
@@ -47,7 +51,7 @@ plot_nivel_logro <- function(df, facet, palette_fill, plot_theme) {
   }
 
   ggplot(df_count, aes(x = .data$curso, y = .data$n, fill = .data$nivel_logro)) +
-    geom_col(position = "fill") +
+    geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
     scale_y_continuous(labels = scales::percent) +
     scale_fill_manual(values = colors) +
     facet_wrap(~tipo) +

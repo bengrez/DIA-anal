@@ -39,13 +39,30 @@ theme_plot <- get_plot_theme("classic")
 out_dir <- file.path(repo_dir, "tmp_smoke")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-p1 <- plot_promedio(df, ejes = eje, facet = "off", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
+p1 <- plot_promedio(
+  df,
+  ejes = eje,
+  facet = "off",
+  palette_fill = "Okabe-Ito",
+  alpha_bars = 0.85,
+  plot_theme = theme_plot
+)
 save_png_ggsave(p1, file.path(out_dir, "promedio.png"), 1200, 800, style_preset = "classic")
 
-p2 <- plot_distribucion(df, ejes = eje, kind = "box", facet = "tipo", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
+p2 <- plot_distribucion(
+  df,
+  ejes = eje,
+  kind = "box",
+  facet = "tipo",
+  palette_fill = "Okabe-Ito",
+  palette_color = "Okabe-Ito",
+  alpha_bars = 0.75,
+  alpha_lines = 0.9,
+  plot_theme = theme_plot
+)
 save_png_ggsave(p2, file.path(out_dir, "distribucion.png"), 1200, 800, style_preset = "classic")
 
-p3 <- plot_nivel_logro(df, facet = "tipo", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
+p3 <- plot_nivel_logro(df, facet = "tipo", palette_fill = "Okabe-Ito", alpha_bars = 0.85, plot_theme = theme_plot)
 save_png_ggsave(p3, file.path(out_dir, "nivel_logro.png"), 1200, 800, style_preset = "classic")
 
 tipos <- sort(unique(df$tipo))
@@ -61,6 +78,8 @@ if (length(tipos) >= 2) {
     facet = "curso",
     palette_fill = "Okabe-Ito",
     palette_color = "Okabe-Ito",
+    alpha_bars = 0.85,
+    alpha_lines = 0.9,
     plot_theme = theme_plot
   )
   save_png_ggsave(p4, file.path(out_dir, "crecimiento.png"), 1200, 800, style_preset = "classic")

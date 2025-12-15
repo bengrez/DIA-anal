@@ -9,6 +9,8 @@ plot_crecimiento <- function(
     facet,
     palette_fill,
     palette_color,
+    alpha_bars,
+    alpha_lines,
     plot_theme
 ) {
   df_delta <- calc_delta_por_estudiante(df, eje = eje, tipo_a = tipo_a, tipo_b = tipo_b) %>%
@@ -60,8 +62,8 @@ plot_crecimiento <- function(
       )
 
     p <- ggplot(df_long, aes(x = .data$momento, y = .data$valor, group = .data$nombre_estudiante, color = .data$direccion)) +
-      geom_line(alpha = 0.8) +
-      geom_point(size = 2, alpha = 0.9) +
+      geom_line(alpha = alpha_lines %||% 0.8) +
+      geom_point(size = 2, alpha = alpha_lines %||% 0.9) +
       scale_y_continuous(labels = scales::label_percent(scale = 1)) +
       scale_color_manual(values = color_colors) +
       labs(x = NULL, y = paste0(eje, " (%)"), color = NULL) +
@@ -79,7 +81,7 @@ plot_crecimiento <- function(
     mutate(estudiante = paste0(.data$nombre_estudiante, " (", .data$n_lista, ")"))
 
   p <- ggplot(df_delta, aes(x = reorder(.data$estudiante, .data$delta), y = .data$delta, fill = .data$direccion)) +
-    geom_col(width = 0.75) +
+    geom_col(width = 0.75, alpha = alpha_bars %||% 0.85) +
     coord_flip() +
     scale_y_continuous(labels = scales::label_number(accuracy = 0.1, suffix = " pp")) +
     scale_fill_manual(values = fill_colors) +
