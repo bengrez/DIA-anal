@@ -113,6 +113,15 @@ ui <- page_sidebar(
 )
 
 server <- function(input, output, session) {
+  # Recomendación para empaquetado tipo RInno/Electron:
+  # asegurar que al cerrar la ventana se termine la sesión de R.
+  if (!interactive()) {
+    session$onSessionEnded(function() {
+      stopApp()
+      q("no")
+    })
+  }
+
   output$sheet1_ui <- renderUI({
     req(input$file1)
     sheets <- excel_sheets_safe(input$file1$datapath)

@@ -21,3 +21,7 @@ renv/
 app/renv/
 app/rsconnect/
 tmp_smoke/
+app/nativefier-app/
+app/*.iss
+app/output/
+app/Output/

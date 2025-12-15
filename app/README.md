@@ -29,5 +29,4 @@ C) Nivel de logro (barras apiladas proporcionales, por curso y Tipo)
 D) Crecimiento por estudiante (delta o slope chart, compara 2 Tipos)
 
 ## Empaquetado (referencia)
-Este repo queda preparado para empaquetar con RInno/Electron (pendiente de agregar scripts de build/installer).
-
+Guía y script base en `app/installer/` (RInno + Inno Setup).
