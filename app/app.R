@@ -6,6 +6,7 @@ required_packages <- c(
   "bslib",
   "ggplot2",
   "readxl",
+  "writexl",
   "dplyr",
   "tidyr",
   "scales"
@@ -29,6 +30,7 @@ library(tidyr)
 
 source(file.path("R", "ingest.R"))
 source(file.path("R", "assistant.R"))
+source(file.path("R", "template.R"))
 source(file.path("R", "transform.R"))
 source(file.path("R", "themes.R"))
 source(file.path("R", "plots", "promedio.R"))
@@ -54,6 +56,7 @@ ui <- page_sidebar(
         fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
         uiOutput("sheet2_ui"),
         checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
+        downloadButton("download_template", "Descargar plantilla Excel"),
         hr(),
         uiOutput("summary_ui")
       ),
@@ -206,6 +209,15 @@ server <- function(input, output, session) {
       )
     )
   })
+
+  output$download_template <- downloadHandler(
+    filename = function() {
+      "plantilla_DIA.xlsx"
+    },
+    content = function(file) {
+      write_dia_excel_template(file)
+    }
+  )
 
   assistant_rec <- reactive({
     assistant_recommendation(

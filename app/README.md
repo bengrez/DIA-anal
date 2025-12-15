@@ -9,6 +9,9 @@ App local para docentes: carga archivos Excel y genera gráficos listos para exp
 La primera vez puede instalar paquetes automáticamente (requiere internet).
 Si el navegador no se abre, entra manualmente a `http://127.0.0.1:3838/`.
 
+## Plantilla Excel
+En la app puedes descargar una plantilla `.xlsx` con encabezados requeridos y una fila de ejemplo (Juanito Juanete): botón **“Descargar plantilla Excel”** en la sección de carga.
+
 ## Contrato de datos (Excel .xlsx)
 Columnas requeridas (se aceptan variaciones menores de mayúsculas/guiones bajos):
 - `Year` (numérico)
