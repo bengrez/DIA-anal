@@ -204,6 +204,87 @@ server <- function(input, output, session) {
           )
         ),
         hr(),
+        accordion(
+          open = NULL,
+          accordion_panel(
+            title = "Ajustes opcionales (Sí/No)",
+            radioButtons(
+              "asst_want_facets",
+              "4) ¿Quieres separar el gráfico en paneles (facets) para comparar?",
+              choices = c("Sí" = "yes", "No" = "no"),
+              selected = "no",
+              inline = TRUE
+            ),
+            conditionalPanel(
+              condition = "input.asst_want_facets == 'yes'",
+              radioButtons(
+                "asst_facet_year",
+                "4.1) ¿Comparas Años?",
+                choices = c("Sí" = "yes", "No" = "no"),
+                selected = "no",
+                inline = TRUE
+              ),
+              conditionalPanel(
+                condition = "input.asst_facet_year == 'no'",
+                radioButtons(
+                  "asst_facet_curso",
+                  "4.2) ¿Comparas Cursos?",
+                  choices = c("Sí" = "yes", "No" = "no"),
+                  selected = "no",
+                  inline = TRUE
+                )
+              ),
+              conditionalPanel(
+                condition = "input.asst_facet_year == 'no' && input.asst_facet_curso == 'no'",
+                radioButtons(
+                  "asst_facet_tipo",
+                  "4.3) ¿Comparas Tipos?",
+                  choices = c("Sí" = "yes", "No" = "no"),
+                  selected = "no",
+                  inline = TRUE
+                )
+              ),
+              conditionalPanel(
+                condition = "input.asst_facet_year == 'no' && input.asst_facet_curso == 'no' && input.asst_facet_tipo == 'no'",
+                radioButtons(
+                  "asst_facet_eje",
+                  "4.4) ¿Comparas Ejes?",
+                  choices = c("Sí" = "yes", "No" = "no"),
+                  selected = "no",
+                  inline = TRUE
+                )
+              )
+            ),
+            conditionalPanel(
+              condition = "input.asst_need_level == 'no' && input.asst_need_growth == 'no' && input.asst_need_dist == 'yes'",
+              radioButtons(
+                "asst_dist_hist",
+                "5) Para distribución: ¿prefieres histograma (forma) en vez de boxplot?",
+                choices = c("Sí" = "yes", "No" = "no"),
+                selected = "no",
+                inline = TRUE
+              )
+            ),
+            conditionalPanel(
+              condition = "input.asst_need_level == 'no' && input.asst_need_growth == 'yes'",
+              radioButtons(
+                "asst_growth_delta",
+                "5) Para crecimiento: ¿prefieres barras de delta (ranking) en vez de líneas (slope)?",
+                choices = c("Sí" = "yes", "No" = "no"),
+                selected = "yes",
+                inline = TRUE
+              ),
+              radioButtons(
+                "asst_growth_topbottom",
+                "6) Para crecimiento: ¿mostrar solo Top + Bottom N en vez de todos?",
+                choices = c("Sí" = "yes", "No" = "no"),
+                selected = "no",
+                inline = TRUE
+              )
+            )
+          )
+        ),
+        hr(),
         uiOutput("assistant_result_ui"),
         actionButton("asst_apply", "Aplicar recomendación", class = "btn-primary")
       )
@@ -223,7 +304,15 @@ server <- function(input, output, session) {
     assistant_recommendation(
       need_level = input$asst_need_level %||% NULL,
       need_growth = input$asst_need_growth %||% NULL,
-      need_dist = input$asst_need_dist %||% NULL
+      need_dist = input$asst_need_dist %||% NULL,
+      want_facets = input$asst_want_facets %||% NULL,
+      facet_year = input$asst_facet_year %||% NULL,
+      facet_curso = input$asst_facet_curso %||% NULL,
+      facet_tipo = input$asst_facet_tipo %||% NULL,
+      facet_eje = input$asst_facet_eje %||% NULL,
+      dist_hist = input$asst_dist_hist %||% NULL,
+      growth_delta = input$asst_growth_delta %||% NULL,
+      growth_topbottom = input$asst_growth_topbottom %||% NULL
     )
   })
 
@@ -235,6 +324,7 @@ server <- function(input, output, session) {
 
     tagList(
       h4(paste0("Recomendación: ", rec$label)),
+      tags$p(tags$strong("Ajustes sugeridos: "), rec$settings_label),
       tags$ul(
         tags$li(rec$why),
         tags$li(rec$what_you_get)
@@ -242,6 +332,8 @@ server <- function(input, output, session) {
       tags$small(class = "text-muted", "Puedes cambiar la recomendación ajustando tus respuestas.")
     )
   })
+
+  asst_pending <- reactiveVal(NULL)
 
   observeEvent(input$asst_apply, {
     rec <- assistant_rec()
@@ -251,8 +343,50 @@ server <- function(input, output, session) {
     }
 
     updateSelectInput(session, "plot_type", selected = rec$plot_type)
+    asst_pending(rec$settings %||% NULL)
     updateTabsetPanel(session, "main_tabs", selected = "grafico")
     showNotification(paste0("Se seleccionó: ", rec$label), type = "message")
+  })
+
+  observe({
+    pending <- asst_pending()
+    if (is.null(pending)) {
+      return()
+    }
+
+    if (!is.null(pending$facet) && !identical(input$facet, pending$facet)) {
+      updateSelectInput(session, "facet", selected = pending$facet)
+    }
+
+    if (identical(input$plot_type, "distribucion") &&
+      !is.null(pending$dist_kind) &&
+      !is.null(input$dist_kind) &&
+      !identical(input$dist_kind, pending$dist_kind)) {
+      updateRadioButtons(session, "dist_kind", selected = pending$dist_kind)
+    }
+
+    if (identical(input$plot_type, "crecimiento")) {
+      if (!is.null(pending$growth_kind) && !is.null(input$growth_kind) && !identical(input$growth_kind, pending$growth_kind)) {
+        updateRadioButtons(session, "growth_kind", selected = pending$growth_kind)
+      }
+      if (!is.null(pending$rank_mode) && !is.null(input$rank_mode) && !identical(input$rank_mode, pending$rank_mode)) {
+        updateRadioButtons(session, "rank_mode", selected = pending$rank_mode)
+      }
+    }
+
+    done <- TRUE
+    if (!is.null(pending$facet) && !identical(input$facet, pending$facet)) done <- FALSE
+    if (identical(input$plot_type, "distribucion") && !is.null(pending$dist_kind)) {
+      if (is.null(input$dist_kind) || !identical(input$dist_kind, pending$dist_kind)) done <- FALSE
+    }
+    if (identical(input$plot_type, "crecimiento")) {
+      if (!is.null(pending$growth_kind) && (is.null(input$growth_kind) || !identical(input$growth_kind, pending$growth_kind))) done <- FALSE
+      if (!is.null(pending$rank_mode) && (is.null(input$rank_mode) || !identical(input$rank_mode, pending$rank_mode))) done <- FALSE
+    }
+
+    if (done) {
+      asst_pending(NULL)
+    }
   })
 
   data_raw <- reactive({
