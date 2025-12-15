@@ -39,10 +39,10 @@ theme_plot <- get_plot_theme("classic")
 out_dir <- file.path(repo_dir, "tmp_smoke")
 dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
-p1 <- plot_promedio(df, eje = eje, palette_fill = "Okabe-Ito", plot_theme = theme_plot)
+p1 <- plot_promedio(df, ejes = eje, facet = "off", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
 save_png_ggsave(p1, file.path(out_dir, "promedio.png"), 1200, 800, style_preset = "classic")
 
-p2 <- plot_distribucion(df, eje = eje, kind = "box", facet = "tipo", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
+p2 <- plot_distribucion(df, ejes = eje, kind = "box", facet = "tipo", palette_fill = "Okabe-Ito", plot_theme = theme_plot)
 save_png_ggsave(p2, file.path(out_dir, "distribucion.png"), 1200, 800, style_preset = "classic")
 
 p3 <- plot_nivel_logro(df, facet = "tipo", palette_fill = "Okabe-Ito", plot_theme = theme_plot)

@@ -69,7 +69,13 @@ ui <- page_sidebar(
       selectInput(
         "facet",
         "Facets",
-        choices = c("OFF" = "off", "Por Curso" = "curso", "Por Tipo" = "tipo"),
+        choices = c(
+          "OFF" = "off",
+          "Por Curso" = "curso",
+          "Por Tipo" = "tipo",
+          "Por Año" = "year",
+          "Por Eje" = "eje"
+        ),
         selected = "off"
       )
     ),
@@ -183,6 +189,7 @@ server <- function(input, output, session) {
     list(
       cursos = sort(unique(df$curso)),
       tipos = sort(unique(df$tipo)),
+      years = sort(unique(df$year)),
       ejes = detect_axes(df),
       fuentes = sort(unique(df$fuente))
     )
@@ -209,8 +216,19 @@ server <- function(input, output, session) {
           value = length(ch$tipos),
           theme = "info"
         ),
+        value_box(
+          title = "Ejes",
+          value = length(ch$ejes),
+          theme = "secondary"
+        ),
         col_widths = c(4, 4, 4)
-      )
+      ),
+      if (length(ch$ejes) > 0) {
+        tags$small(
+          "Ejes detectados: ",
+          paste(ch$ejes, collapse = ", ")
+        )
+      }
     )
   })
 
@@ -231,6 +249,19 @@ server <- function(input, output, session) {
 
     ui_list <- c(ui_list, list(selectInput("curso", "Curso(s)", choices = ch$cursos, selected = ch$cursos, multiple = TRUE)))
 
+    ui_list <- c(
+      ui_list,
+      list(
+        selectInput(
+          "year",
+          "Año(s)",
+          choices = ch$years,
+          selected = ch$years,
+          multiple = TRUE
+        )
+      )
+    )
+
     if (!identical(input$plot_type, "crecimiento")) {
       ui_list <- c(
         ui_list,
@@ -241,7 +272,9 @@ server <- function(input, output, session) {
     if (input$plot_type %in% c("promedio", "distribucion", "crecimiento")) {
       ui_list <- c(
         ui_list,
-        list(selectInput("eje", "Eje / ámbito", choices = ch$ejes, selected = ch$ejes[[1]]))
+        list(
+          selectInput("eje", "Eje / ámbito", choices = ch$ejes, selected = ch$ejes[[1]], multiple = TRUE)
+        )
       )
     }
 
@@ -293,6 +326,9 @@ server <- function(input, output, session) {
     if (!is.null(input$curso)) {
       df <- df %>% filter(.data$curso %in% input$curso)
     }
+    if (!is.null(input$year)) {
+      df <- df %>% filter(.data$year %in% input$year)
+    }
     if (!is.null(input$tipo) && !identical(input$plot_type, "crecimiento")) {
       df <- df %>% filter(.data$tipo %in% input$tipo)
     }
@@ -312,7 +348,11 @@ server <- function(input, output, session) {
       session$setCurrentTheme(ui_theme)
     }
 
-    title_default <- default_title(input$plot_type, input$eje %||% NULL, input$tipo_a %||% NULL, input$tipo_b %||% NULL)
+    eje_first <- (input$eje %||% NULL)
+    if (is.character(eje_first) && length(eje_first) > 0) {
+      eje_first <- eje_first[[1]]
+    }
+    title_default <- default_title(input$plot_type, eje_first, input$tipo_a %||% NULL, input$tipo_b %||% NULL)
     subtitle_default <- default_subtitle(input$curso %||% character(), input$tipo %||% character())
 
     labels <- list(
@@ -327,14 +367,15 @@ server <- function(input, output, session) {
     if (identical(input$plot_type, "promedio")) {
       p <- plot_promedio(
         df = df,
-        eje = input$eje,
+        ejes = input$eje,
+        facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
         plot_theme = plot_theme
       )
     } else if (identical(input$plot_type, "distribucion")) {
       p <- plot_distribucion(
         df = df,
-        eje = input$eje,
+        ejes = input$eje,
         kind = input$dist_kind %||% "box",
         facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
@@ -351,7 +392,7 @@ server <- function(input, output, session) {
       validate(need(!identical(input$tipo_a, input$tipo_b), "Tipo A y Tipo B deben ser distintos."))
       p <- plot_crecimiento(
         df = df,
-        eje = input$eje,
+        eje = (input$eje %||% character())[[1]],
         tipo_a = input$tipo_a,
         tipo_b = input$tipo_b,
         kind = input$growth_kind %||% "delta",

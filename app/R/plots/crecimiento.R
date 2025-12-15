@@ -49,7 +49,7 @@ plot_crecimiento <- function(
 
   if (identical(kind, "slope")) {
     df_long <- df_delta %>%
-      select(.data$curso, .data$n_lista, .data$nombre_estudiante, .data$direccion, .data$valor_A, .data$valor_B) %>%
+      select(year, curso, n_lista, nombre_estudiante, direccion, valor_A, valor_B) %>%
       pivot_longer(
         cols = c("valor_A", "valor_B"),
         names_to = "momento",
@@ -69,6 +69,8 @@ plot_crecimiento <- function(
 
     if (identical(facet, "curso")) {
       p <- p + facet_wrap(~curso)
+    } else if (identical(facet, "year")) {
+      p <- p + facet_wrap(~year)
     }
     return(p)
   }
@@ -86,6 +88,8 @@ plot_crecimiento <- function(
 
   if (identical(facet, "curso")) {
     p <- p + facet_wrap(~curso, scales = "free_y")
+  } else if (identical(facet, "year")) {
+    p <- p + facet_wrap(~year, scales = "free_y")
   }
   p
 }
