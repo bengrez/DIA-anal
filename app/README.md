@@ -7,6 +7,7 @@ App local para docentes: carga archivos Excel y genera gráficos listos para exp
 2. Doble click en `run_app.bat` (en la raíz del repo).
 
 La primera vez puede instalar paquetes automáticamente (requiere internet).
+Si el navegador no se abre, entra manualmente a `http://127.0.0.1:3838/`.
 
 ## Contrato de datos (Excel .xlsx)
 Columnas requeridas (se aceptan variaciones menores de mayúsculas/guiones bajos):
