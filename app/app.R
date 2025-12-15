@@ -28,6 +28,7 @@ library(dplyr)
 library(tidyr)
 
 source(file.path("R", "ingest.R"))
+source(file.path("R", "assistant.R"))
 source(file.path("R", "transform.R"))
 source(file.path("R", "themes.R"))
 source(file.path("R", "plots", "promedio.R"))
@@ -125,9 +126,18 @@ ui <- page_sidebar(
     )
   ),
   layout_columns(
-    card(
-      card_header("Vista previa"),
-      plotOutput("plot", height = "650px")
+    navset_card_tab(
+      id = "main_tabs",
+      nav_panel(
+        title = "Gráfico",
+        value = "grafico",
+        plotOutput("plot", height = "650px")
+      ),
+      nav_panel(
+        title = "Asistente",
+        value = "asistente",
+        uiOutput("assistant_ui")
+      )
     ),
     col_widths = c(12)
   )
@@ -153,6 +163,84 @@ server <- function(input, output, session) {
     req(input$file2)
     sheets <- excel_sheets_safe(input$file2$datapath)
     selectInput("sheet2", "Hoja (Archivo 2)", choices = sheets, selected = sheets[[1]])
+  })
+
+  output$assistant_ui <- renderUI({
+    tagList(
+      card(
+        card_header("Asistente para elegir el gráfico"),
+        p(
+          "Responde preguntas de Sí/No y la app te recomendará el tipo de gráfico más útil para tu informe.",
+          "Luego puedes aplicar la recomendación y ajustar filtros/estilo."
+        ),
+        radioButtons(
+          "asst_need_level",
+          "1) ¿Tu informe necesita mostrar categorías de NIVEL DE LOGRO (barras apiladas por nivel)?",
+          choices = c("Sí" = "yes", "No" = "no"),
+          selected = character(0),
+          inline = TRUE
+        ),
+        conditionalPanel(
+          condition = "input.asst_need_level == 'no'",
+          radioButtons(
+            "asst_need_growth",
+            "2) ¿Necesitas mostrar el cambio por estudiante entre dos Tipos (delta o slope chart)?",
+            choices = c("Sí" = "yes", "No" = "no"),
+            selected = character(0),
+            inline = TRUE
+          )
+        ),
+        conditionalPanel(
+          condition = "input.asst_need_level == 'no' && input.asst_need_growth == 'no'",
+          radioButtons(
+            "asst_need_dist",
+            "3) ¿Te importa más la distribución/variabilidad que el promedio (boxplot/histograma)?",
+            choices = c("Sí" = "yes", "No" = "no"),
+            selected = character(0),
+            inline = TRUE
+          )
+        ),
+        hr(),
+        uiOutput("assistant_result_ui"),
+        actionButton("asst_apply", "Aplicar recomendación", class = "btn-primary")
+      )
+    )
+  })
+
+  assistant_rec <- reactive({
+    assistant_recommendation(
+      need_level = input$asst_need_level %||% NULL,
+      need_growth = input$asst_need_growth %||% NULL,
+      need_dist = input$asst_need_dist %||% NULL
+    )
+  })
+
+  output$assistant_result_ui <- renderUI({
+    rec <- assistant_rec()
+    if (!isTRUE(rec$complete)) {
+      return(tags$div(class = "text-muted", rec$prompt))
+    }
+
+    tagList(
+      h4(paste0("Recomendación: ", rec$label)),
+      tags$ul(
+        tags$li(rec$why),
+        tags$li(rec$what_you_get)
+      ),
+      tags$small(class = "text-muted", "Puedes cambiar la recomendación ajustando tus respuestas.")
+    )
+  })
+
+  observeEvent(input$asst_apply, {
+    rec <- assistant_rec()
+    if (!isTRUE(rec$complete)) {
+      showNotification("Responde las preguntas para obtener una recomendación.", type = "warning")
+      return()
+    }
+
+    updateSelectInput(session, "plot_type", selected = rec$plot_type)
+    updateTabsetPanel(session, "main_tabs", selected = "grafico")
+    showNotification(paste0("Se seleccionó: ", rec$label), type = "message")
   })
 
   data_raw <- reactive({
