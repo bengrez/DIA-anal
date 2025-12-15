@@ -1,9 +1,11 @@
 plot_nivel_logro <- function(df, facet, palette_fill, alpha_bars, plot_theme) {
   df_count <- df %>%
-    filter(!is.na(.data$nivel_logro), nzchar(.data$nivel_logro)) %>%
+    mutate(nivel_logro_chr = as.character(.data$nivel_logro)) %>%
+    filter(!is.na(.data$nivel_logro_chr), nzchar(.data$nivel_logro_chr)) %>%
     count(.data$year, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
 
-  base_levels <- sort(unique(df$nivel_logro[!is.na(df$nivel_logro) & nzchar(df$nivel_logro)]))
+  nivel_chr <- as.character(df$nivel_logro)
+  base_levels <- sort(unique(nivel_chr[!is.na(nivel_chr) & nzchar(nivel_chr)]))
   if (is.factor(df$nivel_logro)) {
     base_levels <- levels(droplevels(df$nivel_logro))
   }

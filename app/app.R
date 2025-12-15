@@ -234,7 +234,7 @@ server <- function(input, output, session) {
         choices = ch$tipos,
         selected = tipo_selected,
         multiple = TRUE,
-        options = list(plugins = list("drag_drop", "remove_button"), persist = TRUE)
+        options = list(plugins = c("drag_drop", "remove_button"), persist = TRUE)
       ),
       selectizeInput(
         "nivel_order",
@@ -242,7 +242,7 @@ server <- function(input, output, session) {
         choices = ch$niveles,
         selected = nivel_selected,
         multiple = TRUE,
-        options = list(plugins = list("drag_drop", "remove_button"), persist = TRUE)
+        options = list(plugins = c("drag_drop", "remove_button"), persist = TRUE)
       )
     )
   })
@@ -255,7 +255,7 @@ server <- function(input, output, session) {
       layout_columns(
         value_box(
           title = "Filas",
-          value = format(nrow(df), big.mark = "."),
+          value = format(nrow(df), big.mark = ".", decimal.mark = ","),
           theme = "primary"
         ),
         value_box(

@@ -32,6 +32,7 @@ if (!file.exists(data_path)) {
 df <- read_dia_excel(data_path, sheet = 1, source_name = basename(data_path))
 validate_dia_data(df)
 df <- apply_anonymity(df, anonymous = TRUE)
+df <- apply_factor_orders(df)
 
 eje <- detect_axes(df)[1]
 theme_plot <- get_plot_theme("classic")
