@@ -4,6 +4,7 @@ required <- c(
   "ggplot2",
   "readxl",
   "writexl",
+  "zip",
   "dplyr",
   "tidyr",
   "scales"

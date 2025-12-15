@@ -133,6 +133,29 @@ make_export_filename <- function(plot_type, cursos, eje, tipo_a = NULL, tipo_b =
   paste0("DIA_", plot_key, "_", curso_key, "_", eje_key, extra, ".png")
 }
 
+make_export_filename_v2 <- function(plot_type, cursos, years = NULL, eje = NULL, tipo_a = NULL, tipo_b = NULL) {
+  plot_key <- sanitize_filename_part(plot_type)
+
+  cursos <- unique(as.character(cursos %||% character()))
+  curso_key <- if (length(cursos) == 1) sanitize_filename_part(cursos[[1]]) else "VariosCursos"
+
+  years <- unique(as.character(years %||% character()))
+  year_key <- if (length(years) == 1) sanitize_filename_part(years[[1]]) else "VariosAnios"
+
+  eje_key <- sanitize_filename_part(eje %||% "")
+  if (identical(plot_type, "nivel_logro")) {
+    eje_key <- "NivelLogro"
+  }
+  if (!nzchar(eje_key)) eje_key <- "NA"
+
+  extra <- ""
+  if (identical(plot_type, "crecimiento")) {
+    extra <- paste0("_", sanitize_filename_part(tipo_a), "_a_", sanitize_filename_part(tipo_b))
+  }
+
+  paste0("DIA_", plot_key, "_", curso_key, "_", year_key, "_", eje_key, extra, ".png")
+}
+
 save_png_ggsave <- function(plot, path, width_px, height_px, style_preset) {
   dpi <- 300
   bg <- if (identical(style_preset, "dark")) "#111111" else "white"
