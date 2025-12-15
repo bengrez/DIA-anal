@@ -1,0 +1,396 @@
+## App Shiny (MVP) para gráficos DIA
+## UI en español, datos locales, exportación PNG.
+
+required_packages <- c(
+  "shiny",
+  "bslib",
+  "ggplot2",
+  "readxl",
+  "dplyr",
+  "tidyr",
+  "scales"
+)
+
+missing <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
+if (length(missing) > 0) {
+  stop(
+    "Faltan paquetes R: ",
+    paste(missing, collapse = ", "),
+    "\nEjecuta: Rscript app/scripts/install_deps.R",
+    call. = FALSE
+  )
+}
+
+library(shiny)
+library(bslib)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+source(file.path("R", "ingest.R"))
+source(file.path("R", "transform.R"))
+source(file.path("R", "themes.R"))
+source(file.path("R", "plots", "promedio.R"))
+source(file.path("R", "plots", "distribucion.R"))
+source(file.path("R", "plots", "nivel_logro.R"))
+source(file.path("R", "plots", "crecimiento.R"))
+
+options(shiny.maxRequestSize = 100 * 1024^2) # 100 MB
+
+ui <- page_sidebar(
+  title = "Gráficos DIA (MVP)",
+  theme = bs_theme(version = 5, bootswatch = "flatly"),
+  sidebar = sidebar(
+    width = 360,
+    card(
+      card_header("1) Carga de datos (Excel .xlsx)"),
+      fileInput("file1", "Archivo 1 (obligatorio)", accept = ".xlsx"),
+      uiOutput("sheet1_ui"),
+      fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
+      uiOutput("sheet2_ui"),
+      checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
+      hr(),
+      uiOutput("summary_ui")
+    ),
+    card(
+      card_header("2) Gráfico"),
+      selectInput(
+        "plot_type",
+        "Tipo de gráfico",
+        choices = c(
+          "A) Promedio por curso y Tipo" = "promedio",
+          "B) Distribución" = "distribucion",
+          "C) Nivel de logro" = "nivel_logro",
+          "D) Crecimiento por estudiante (delta)" = "crecimiento"
+        )
+      ),
+      uiOutput("filters_ui"),
+      hr(),
+      selectInput(
+        "facet",
+        "Facets",
+        choices = c("OFF" = "off", "Por Curso" = "curso", "Por Tipo" = "tipo"),
+        selected = "off"
+      )
+    ),
+    card(
+      card_header("3) Estilo y exportación"),
+      selectInput(
+        "style_preset",
+        "Plantilla de estilo",
+        choices = c(
+          "Informe clásico" = "classic",
+          "Minimal" = "minimal",
+          "Oscuro" = "dark",
+          "Alto contraste" = "contrast"
+        ),
+        selected = "classic"
+      ),
+      selectInput("palette_fill", "Paleta (fill)", choices = available_palettes(), selected = "Okabe-Ito"),
+      selectInput("palette_color", "Paleta (color)", choices = available_palettes(), selected = "Okabe-Ito"),
+      hr(),
+      textInput("title", "Título", value = ""),
+      textInput("subtitle", "Subtítulo", value = ""),
+      textInput("xlab", "Eje X", value = ""),
+      textInput("ylab", "Eje Y", value = ""),
+      hr(),
+      selectInput(
+        "export_res",
+        "Resolución PNG",
+        choices = c("Baja (1200×800)" = "low", "Media (2000×1300)" = "med", "Alta (3200×2100)" = "high"),
+        selected = "med"
+      ),
+      downloadButton("download_png", "Descargar PNG")
+    )
+  ),
+  layout_columns(
+    card(
+      card_header("Vista previa"),
+      plotOutput("plot", height = "650px")
+    ),
+    col_widths = c(12)
+  )
+)
+
+server <- function(input, output, session) {
+  output$sheet1_ui <- renderUI({
+    req(input$file1)
+    sheets <- excel_sheets_safe(input$file1$datapath)
+    selectInput("sheet1", "Hoja (Archivo 1)", choices = sheets, selected = sheets[[1]])
+  })
+
+  output$sheet2_ui <- renderUI({
+    req(input$file2)
+    sheets <- excel_sheets_safe(input$file2$datapath)
+    selectInput("sheet2", "Hoja (Archivo 2)", choices = sheets, selected = sheets[[1]])
+  })
+
+  data_raw <- reactive({
+    req(input$file1)
+    df1 <- tryCatch(
+      read_dia_excel(
+        path = input$file1$datapath,
+        sheet = input$sheet1 %||% 1,
+        source_name = input$file1$name
+      ),
+      error = function(e) {
+        validate(need(FALSE, paste0("Error en Archivo 1: ", e$message)))
+      }
+    )
+
+    if (is.null(input$file2)) {
+      return(df1)
+    }
+
+    df2 <- tryCatch(
+      read_dia_excel(
+        path = input$file2$datapath,
+        sheet = input$sheet2 %||% 1,
+        source_name = input$file2$name
+      ),
+      error = function(e) {
+        validate(need(FALSE, paste0("Error en Archivo 2: ", e$message)))
+      }
+    )
+
+    bind_rows(df1, df2)
+  })
+
+  data_clean <- reactive({
+    df <- data_raw()
+    validation_error <- tryCatch(
+      {
+        validate_dia_data(df)
+        NULL
+      },
+      error = function(e) e$message
+    )
+    validate(need(is.null(validation_error), validation_error))
+    apply_anonymity(df, anonymous = isTRUE(input$anon))
+  })
+
+  choices <- reactive({
+    df <- data_clean()
+    list(
+      cursos = sort(unique(df$curso)),
+      tipos = sort(unique(df$tipo)),
+      ejes = detect_axes(df),
+      fuentes = sort(unique(df$fuente))
+    )
+  })
+
+  output$summary_ui <- renderUI({
+    df <- data_clean()
+    ch <- choices()
+
+    tagList(
+      layout_columns(
+        value_box(
+          title = "Filas",
+          value = format(nrow(df), big.mark = "."),
+          theme = "primary"
+        ),
+        value_box(
+          title = "Cursos",
+          value = length(ch$cursos),
+          theme = "info"
+        ),
+        value_box(
+          title = "Tipos",
+          value = length(ch$tipos),
+          theme = "info"
+        ),
+        col_widths = c(4, 4, 4)
+      )
+    )
+  })
+
+  output$filters_ui <- renderUI({
+    ch <- choices()
+    df <- data_clean()
+
+    ui_list <- list()
+
+    if (length(ch$fuentes) > 1) {
+      ui_list <- c(
+        ui_list,
+        list(
+          selectInput("fuente", "Archivo(s)", choices = ch$fuentes, selected = ch$fuentes, multiple = TRUE)
+        )
+      )
+    }
+
+    ui_list <- c(ui_list, list(selectInput("curso", "Curso(s)", choices = ch$cursos, selected = ch$cursos, multiple = TRUE)))
+
+    if (!identical(input$plot_type, "crecimiento")) {
+      ui_list <- c(
+        ui_list,
+        list(selectInput("tipo", "Tipo(s)", choices = ch$tipos, selected = ch$tipos, multiple = TRUE))
+      )
+    }
+
+    if (input$plot_type %in% c("promedio", "distribucion", "crecimiento")) {
+      ui_list <- c(
+        ui_list,
+        list(selectInput("eje", "Eje / ámbito", choices = ch$ejes, selected = ch$ejes[[1]]))
+      )
+    }
+
+    if (identical(input$plot_type, "distribucion")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          radioButtons(
+            "dist_kind",
+            "Tipo de distribución",
+            choices = c("Boxplot" = "box", "Histograma" = "hist"),
+            inline = TRUE
+          )
+        )
+      )
+    }
+
+    if (identical(input$plot_type, "crecimiento")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          selectInput("tipo_a", "Tipo A", choices = ch$tipos, selected = ch$tipos[[1]]),
+          selectInput("tipo_b", "Tipo B", choices = ch$tipos, selected = ch$tipos[[min(2, length(ch$tipos))]]),
+          radioButtons(
+            "growth_kind",
+            "Visualización",
+            choices = c("Delta (barras)" = "delta", "Slope chart" = "slope"),
+            inline = TRUE
+          ),
+          radioButtons(
+            "rank_mode",
+            "Filtrar estudiantes",
+            choices = c("Todos" = "all", "Top N" = "top", "Bottom N" = "bottom", "Top N + Bottom N" = "both"),
+            inline = FALSE
+          ),
+          numericInput("rank_n", "N", value = 10, min = 1, max = 200, step = 1)
+        )
+      )
+    }
+
+    do.call(tagList, ui_list)
+  })
+
+  filtered_data <- reactive({
+    df <- data_clean()
+    if (!is.null(input$fuente)) {
+      df <- df %>% filter(.data$fuente %in% input$fuente)
+    }
+    if (!is.null(input$curso)) {
+      df <- df %>% filter(.data$curso %in% input$curso)
+    }
+    if (!is.null(input$tipo) && !identical(input$plot_type, "crecimiento")) {
+      df <- df %>% filter(.data$tipo %in% input$tipo)
+    }
+    df
+  })
+
+  current_plot <- reactive({
+    df <- filtered_data()
+    ch <- choices()
+
+    validate(
+      need(nrow(df) > 0, "No hay filas después de aplicar filtros.")
+    )
+
+    ui_theme <- get_ui_theme(input$style_preset)
+    if (is.function(session$setCurrentTheme)) {
+      session$setCurrentTheme(ui_theme)
+    }
+
+    title_default <- default_title(input$plot_type, input$eje %||% NULL, input$tipo_a %||% NULL, input$tipo_b %||% NULL)
+    subtitle_default <- default_subtitle(input$curso %||% character(), input$tipo %||% character())
+
+    labels <- list(
+      title = nz_or_default(input$title, title_default),
+      subtitle = nz_or_default(input$subtitle, subtitle_default),
+      x = nz_or_default(input$xlab, NULL),
+      y = nz_or_default(input$ylab, NULL)
+    )
+
+    plot_theme <- get_plot_theme(input$style_preset)
+
+    if (identical(input$plot_type, "promedio")) {
+      p <- plot_promedio(
+        df = df,
+        eje = input$eje,
+        palette_fill = input$palette_fill,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "distribucion")) {
+      p <- plot_distribucion(
+        df = df,
+        eje = input$eje,
+        kind = input$dist_kind %||% "box",
+        facet = input$facet %||% "off",
+        palette_fill = input$palette_fill,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "nivel_logro")) {
+      p <- plot_nivel_logro(
+        df = df,
+        facet = input$facet %||% "tipo",
+        palette_fill = input$palette_fill,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "crecimiento")) {
+      validate(need(!identical(input$tipo_a, input$tipo_b), "Tipo A y Tipo B deben ser distintos."))
+      p <- plot_crecimiento(
+        df = df,
+        eje = input$eje,
+        tipo_a = input$tipo_a,
+        tipo_b = input$tipo_b,
+        kind = input$growth_kind %||% "delta",
+        rank_mode = input$rank_mode %||% "all",
+        rank_n = input$rank_n %||% 10,
+        facet = input$facet %||% "curso",
+        palette_fill = input$palette_fill,
+        palette_color = input$palette_color,
+        plot_theme = plot_theme
+      )
+    } else {
+      p <- ggplot() + theme_void() + ggtitle("Selecciona un gráfico")
+    }
+
+    apply_labels(p, labels)
+  })
+
+  output$plot <- renderPlot({
+    current_plot()
+  }, res = 96)
+
+  outputOptions(output, "plot", suspendWhenHidden = FALSE)
+
+  output$download_png <- downloadHandler(
+    filename = function() {
+      df <- filtered_data()
+      eje <- input$eje %||% NULL
+      cursos <- input$curso %||% character()
+      make_export_filename(
+        plot_type = input$plot_type,
+        cursos = cursos,
+        eje = eje,
+        tipo_a = input$tipo_a %||% NULL,
+        tipo_b = input$tipo_b %||% NULL
+      )
+    },
+    content = function(file) {
+      p <- current_plot()
+      dims <- export_dims_px(input$export_res %||% "med")
+      save_png_ggsave(
+        plot = p,
+        path = file,
+        width_px = dims$width,
+        height_px = dims$height,
+        style_preset = input$style_preset %||% "classic"
+      )
+    }
+  )
+}
+
+shinyApp(ui, server)

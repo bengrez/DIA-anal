@@ -13,3 +13,11 @@ build/
 *.svg
 *.pdf
 
+# R / Shiny
+.Rhistory
+.RData
+.Rproj.user/
+renv/
+app/renv/
+app/rsconnect/
+tmp_smoke/

@@ -1,33 +1,18 @@
-# DIA-plots
+# DIA-anal
 
-Herramienta para **leer, analizar y generar gráficos** específicos para pruebas **DIA** (series, comparativas, reportes y visualizaciones que se definan en el plan).
+Repositorio para **analizar datos DIA** y generar **gráficos** a partir de archivos Excel escolares.
 
-## Quickstart (Windows / PowerShell)
-- Crear entorno e instalar dependencias: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap.ps1`
-- Activar entorno: `.\.venv\Scripts\Activate.ps1`
-- Ver info de un Excel: `dia-plots info .\data_basica.xlsx`
+## MVP (R + Shiny): app para docentes
+La app principal vive en `app/` y está pensada para uso local (datos no se suben a servidores).
 
-## Objetivo inmediato
-- Definir un pipeline reproducible: **ingesta → validación → análisis → gráficos → exportación**.
-- Estandarizar la entrada (Excel/CSV) y producir salidas (PNG/SVG/PDF + tablas).
+- Ejecutar en Windows: doble click en `run_app.bat`
+- Documentación: `app/README.md`
 
-## Datos locales
-En este workspace existen:
+## Datos de ejemplo
+En la raíz del repo están:
 - `data_basica.xlsx`
 - `data_med.xlsx`
 
-(En el plan definiremos el esquema: hojas, columnas, unidades, y reglas.)
-
-## Estado del repo base (DIA-anal)
-Se intentó clonar `https://github.com/bengrez/DIA-anal` en `./DIA-anal`, pero el repositorio aparece vacío (sin commits). Si hay otra URL/branch, o es privado, pásame el enlace correcto y lo integro.
-
-## Estructura
-- `src/dia_plots/`: librería (IO + plots + CLI)
-- `scripts/`: utilidades de bootstrap
-
-## CLI (actual)
-- `dia-plots info <archivo.xlsx>`: lista hojas/columnas
-- `dia-plots plot xy <archivo.xlsx> --sheet <hoja> --x <col> --y <col> --out <salida.png>`
-
-Siguiente paso: compárteme tu plan estructurado (métricas/cálculos y gráficos exactos) y lo implementamos sobre estos archivos de ejemplo.
+## Utilidades Python (scaffold)
+Existe un scaffold inicial en `src/dia_plots/` con un CLI básico (`dia-plots`) para inspección/plots simples.
 
