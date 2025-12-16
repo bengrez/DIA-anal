@@ -172,6 +172,22 @@ ui <- page_sidebar(
           accordion_panel(
             title = "Texto sugerido para informe",
             uiOutput("interpretation_ui")
+          ),
+          accordion_panel(
+            title = "Tablas (descarga CSV/XLSX)",
+            uiOutput("tables_ui")
+          ),
+          accordion_panel(
+            title = "Calidad de datos",
+            uiOutput("quality_ui")
+          ),
+          accordion_panel(
+            title = "Comparar archivos",
+            uiOutput("compare_ui")
+          ),
+          accordion_panel(
+            title = "Exportar (datos + ZIPs)",
+            uiOutput("export_ui")
           )
         )
       ),
@@ -179,26 +195,6 @@ ui <- page_sidebar(
         title = "Asistente",
         value = "asistente",
         uiOutput("assistant_ui")
-      ),
-      nav_panel(
-        title = "Tablas",
-        value = "tablas",
-        uiOutput("tables_ui")
-      ),
-      nav_panel(
-        title = "Calidad",
-        value = "calidad",
-        uiOutput("quality_ui")
-      ),
-      nav_panel(
-        title = "Comparar",
-        value = "comparar",
-        uiOutput("compare_ui")
-      ),
-      nav_panel(
-        title = "Exportar",
-        value = "exportar",
-        uiOutput("export_ui")
       )
     ),
     col_widths = c(12)
