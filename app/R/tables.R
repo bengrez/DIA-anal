@@ -56,13 +56,77 @@ table_crecimiento <- function(df, eje, tipo_a, tipo_b) {
     arrange(.data$year, .data$curso, desc(.data$delta))
 }
 
+table_heatmap <- function(df, ejes, axis_dim = "curso") {
+  ejes <- unique(as.character(ejes %||% character()))
+  if (length(ejes) == 0) {
+    stop("Selecciona al menos 1 eje.", call. = FALSE)
+  }
+
+  axis_dim <- match.arg(axis_dim, c("curso", "tipo"))
+
+  df %>%
+    select(year, curso, tipo, all_of(ejes)) %>%
+    tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
+    group_by(.data$year, .data[[axis_dim]], .data$eje) %>%
+    summarise(n = sum(!is.na(.data$valor)), promedio = mean(.data$valor, na.rm = TRUE), .groups = "drop") %>%
+    arrange(.data$year, .data$eje, .data[[axis_dim]])
+}
+
+table_violin <- function(df, ejes, group_var = "curso") {
+  ejes <- unique(as.character(ejes %||% character()))
+  if (length(ejes) == 0) {
+    stop("Selecciona al menos 1 eje.", call. = FALSE)
+  }
+
+  group_var <- match.arg(group_var, c("curso", "tipo"))
+
+  df %>%
+    select(year, curso, tipo, all_of(ejes)) %>%
+    tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
+    group_by(.data$year, .data[[group_var]], .data$eje) %>%
+    summarise(
+      n = sum(!is.na(.data$valor)),
+      promedio = mean(.data$valor, na.rm = TRUE),
+      mediana = median(.data$valor, na.rm = TRUE),
+      sd = stats::sd(.data$valor, na.rm = TRUE),
+      p25 = stats::quantile(.data$valor, probs = 0.25, na.rm = TRUE, names = FALSE),
+      p75 = stats::quantile(.data$valor, probs = 0.75, na.rm = TRUE, names = FALSE),
+      .groups = "drop"
+    ) %>%
+    arrange(.data$year, .data$eje, .data[[group_var]])
+}
+
+table_tendencia <- function(df, ejes, group_var = "curso") {
+  ejes <- unique(as.character(ejes %||% character()))
+  if (length(ejes) == 0) {
+    stop("Selecciona al menos 1 eje.", call. = FALSE)
+  }
+
+  group_var <- match.arg(group_var, c("curso", "tipo"))
+
+  df %>%
+    select(year, curso, tipo, all_of(ejes)) %>%
+    tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
+    group_by(.data$year, .data[[group_var]], .data$eje) %>%
+    summarise(
+      n = sum(!is.na(.data$valor)),
+      promedio = mean(.data$valor, na.rm = TRUE),
+      sd = stats::sd(.data$valor, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    arrange(.data$year, .data$eje, .data[[group_var]])
+}
+
 current_table <- function(
     df,
     plot_type,
     ejes = NULL,
     dist_kind = NULL,
     tipo_a = NULL,
-    tipo_b = NULL
+    tipo_b = NULL,
+    heatmap_dim = NULL,
+    violin_group = NULL,
+    trend_group = NULL
 ) {
   if (identical(plot_type, "promedio")) {
     return(table_promedio(df, ejes = ejes))
@@ -70,6 +134,15 @@ current_table <- function(
   if (identical(plot_type, "distribucion")) {
     # Para informes suele ser más útil el resumen estadístico.
     return(table_distribucion_stats(df, ejes = ejes))
+  }
+  if (identical(plot_type, "heatmap")) {
+    return(table_heatmap(df, ejes = ejes, axis_dim = heatmap_dim %||% "curso"))
+  }
+  if (identical(plot_type, "violin")) {
+    return(table_violin(df, ejes = ejes, group_var = violin_group %||% "curso"))
+  }
+  if (identical(plot_type, "tendencia")) {
+    return(table_tendencia(df, ejes = ejes, group_var = trend_group %||% "curso"))
   }
   if (identical(plot_type, "nivel_logro")) {
     return(table_nivel_logro(df))

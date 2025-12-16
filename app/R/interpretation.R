@@ -6,6 +6,10 @@ interpretation_points <- function(
     years = NULL,
     facet = "off",
     dist_kind = NULL,
+    heatmap_dim = NULL,
+    violin_kind = NULL,
+    violin_group = NULL,
+    trend_group = NULL,
     tipo_a = NULL,
     tipo_b = NULL,
     growth_kind = NULL,
@@ -55,6 +59,46 @@ interpretation_points <- function(
         paste0("Modo: ", kind_txt, "."),
         "Útil para ver variabilidad y outliers (no solo el promedio).",
         "Si comparas Tipos, revisa si la distribución se desplaza (mejora/baja) o se vuelve más dispersa."
+      )
+    ))
+  }
+
+  if (identical(plot_type, "heatmap")) {
+    axis_txt <- if (identical(heatmap_dim, "tipo")) "Tipo" else "Curso"
+    return(list(
+      title = "Cómo leer este gráfico (heatmap)",
+      bullets = c(
+        common,
+        paste0("Eje vs ", axis_txt, " con escala de color por promedio (%)."),
+        "Colores más intensos indican valores promedio más altos.",
+        "Útil para detectar patrones rápidos entre ejes y grupos."
+      )
+    ))
+  }
+
+  if (identical(plot_type, "violin")) {
+    mode_txt <- if (identical(violin_kind, "ridge")) "Ridgeline" else "Violín"
+    group_txt <- if (identical(violin_group, "tipo")) "Tipo" else "Curso"
+    return(list(
+      title = "Cómo leer este gráfico (distribución violín/ridgeline)",
+      bullets = c(
+        common,
+        paste0("Distribución por ", group_txt, " (", mode_txt, ")."),
+        "Permite ver densidad, simetría y presencia de outliers.",
+        "Comparar el ancho/altura ayuda a notar variabilidad entre grupos."
+      )
+    ))
+  }
+
+  if (identical(plot_type, "tendencia")) {
+    group_txt <- if (identical(trend_group, "tipo")) "Tipo" else "Curso"
+    return(list(
+      title = "Cómo leer este gráfico (tendencia temporal)",
+      bullets = c(
+        common,
+        paste0("Líneas por ", group_txt, " mostrando la evolución anual."),
+        "La pendiente indica mejora o retroceso en el tiempo.",
+        "Útil para informes de progreso y seguimiento longitudinal."
       )
     ))
   }
