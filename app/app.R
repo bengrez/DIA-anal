@@ -435,7 +435,32 @@ server <- function(input, output, session) {
       tipo_b = input$tipo_b %||% NULL,
       growth_kind = input$growth_kind %||% NULL,
       rank_mode = input$rank_mode %||% NULL,
-      anonymous = isTRUE(input$anon)
+      anonymous = isTRUE(input$anon),
+      show_mean = switch(input$plot_type,
+        "promedio" = isTRUE(input$prom_show_mean),
+        "distribucion" = isTRUE(input$dist_show_mean),
+        "crecimiento" = isTRUE(input$growth_show_mean),
+        FALSE
+      ),
+      show_median = switch(input$plot_type,
+        "promedio" = isTRUE(input$prom_show_median),
+        "distribucion" = isTRUE(input$dist_show_median),
+        "crecimiento" = isTRUE(input$growth_show_median),
+        FALSE
+      ),
+      show_band = switch(input$plot_type,
+        "promedio" = isTRUE(input$prom_show_band),
+        "distribucion" = isTRUE(input$dist_show_band),
+        "crecimiento" = isTRUE(input$growth_show_band),
+        FALSE
+      ),
+      show_labels = switch(input$plot_type,
+        "promedio" = isTRUE(input$prom_label_stats),
+        "distribucion" = isTRUE(input$dist_label_stats),
+        "crecimiento" = isTRUE(input$growth_label_stats),
+        FALSE
+      ),
+      show_corr = if (identical(input$plot_type, "distribucion")) isTRUE(input$dist_show_corr) else FALSE
     )
 
     tagList(
@@ -722,6 +747,19 @@ server <- function(input, output, session) {
             "Tipo de distribución",
             choices = c("Boxplot" = "box", "Histograma" = "hist"),
             inline = TRUE
+          ),
+          checkboxInput("dist_show_mean", "Línea de promedio", value = FALSE),
+          checkboxInput("dist_show_median", "Línea de mediana", value = TRUE),
+          checkboxInput("dist_show_band", "Banda (p25–p75 / sd)", value = FALSE),
+          radioButtons(
+            "dist_band_metric",
+            "Métrica de banda",
+            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+            selected = "p25p75",
+            inline = TRUE
+          ),
+          checkboxInput("dist_label_stats", "Etiquetar n y percentiles", value = FALSE),
+          checkboxInput("dist_show_corr", "Correlación / regresión (≥2 ejes)", value = FALSE)
           )
         )
       )
@@ -745,7 +783,37 @@ server <- function(input, output, session) {
             choices = c("Todos" = "all", "Top N" = "top", "Bottom N" = "bottom", "Top N + Bottom N" = "both"),
             inline = FALSE
           ),
-          numericInput("rank_n", "N", value = 10, min = 1, max = 200, step = 1)
+          numericInput("rank_n", "N", value = 10, min = 1, max = 200, step = 1),
+          checkboxInput("growth_show_mean", "Línea de promedio Δ", value = FALSE),
+          checkboxInput("growth_show_median", "Línea de mediana Δ", value = FALSE),
+          checkboxInput("growth_show_band", "Banda de intervalo (p25–p75 / sd)", value = FALSE),
+          radioButtons(
+            "growth_band_metric",
+            "Métrica de banda",
+            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+            selected = "p25p75",
+            inline = TRUE
+          ),
+          checkboxInput("growth_label_stats", "Etiquetar n y percentiles", value = FALSE)
+        )
+      )
+    }
+
+    if (identical(input$plot_type, "promedio")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          checkboxInput("prom_show_mean", "Línea de promedio", value = TRUE),
+          checkboxInput("prom_show_median", "Línea de mediana", value = FALSE),
+          checkboxInput("prom_show_band", "Banda de intervalo (p25–p75 / sd)", value = FALSE),
+          radioButtons(
+            "prom_band_metric",
+            "Métrica de banda",
+            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+            selected = "p25p75",
+            inline = TRUE
+          ),
+          checkboxInput("prom_label_stats", "Etiquetar n y percentiles", value = FALSE)
         )
       )
     }
@@ -782,7 +850,8 @@ server <- function(input, output, session) {
       ejes = input$eje %||% NULL,
       dist_kind = input$dist_kind %||% NULL,
       tipo_a = input$tipo_a %||% NULL,
-      tipo_b = input$tipo_b %||% NULL
+      tipo_b = input$tipo_b %||% NULL,
+      show_corr = isTRUE(input$dist_show_corr)
     )
   })
 
@@ -1161,7 +1230,12 @@ server <- function(input, output, session) {
                 facet = input$facet %||% "off",
                 palette_fill = input$palette_fill,
                 alpha_bars = input$alpha_bars %||% 0.85,
-                plot_theme = plot_theme
+                plot_theme = plot_theme,
+                show_mean = isTRUE(input$prom_show_mean),
+                show_median = isTRUE(input$prom_show_median),
+                show_band = isTRUE(input$prom_show_band),
+                band_metric = input$prom_band_metric %||% "p25p75",
+                label_stats = isTRUE(input$prom_label_stats)
               )
             } else if (identical(plot_type, "distribucion")) {
               p <- plot_distribucion(
@@ -1173,7 +1247,13 @@ server <- function(input, output, session) {
                 palette_color = input$palette_color,
                 alpha_bars = input$alpha_bars %||% 0.85,
                 alpha_lines = input$alpha_lines %||% 0.9,
-                plot_theme = plot_theme
+                plot_theme = plot_theme,
+                show_mean = isTRUE(input$dist_show_mean),
+                show_median = isTRUE(input$dist_show_median),
+                show_band = isTRUE(input$dist_show_band),
+                band_metric = input$dist_band_metric %||% "p25p75",
+                label_stats = isTRUE(input$dist_label_stats),
+                show_corr = isTRUE(input$dist_show_corr)
               )
             } else if (identical(plot_type, "nivel_logro")) {
               p <- plot_nivel_logro(
@@ -1197,7 +1277,12 @@ server <- function(input, output, session) {
                 palette_color = input$palette_color,
                 alpha_bars = input$alpha_bars %||% 0.85,
                 alpha_lines = input$alpha_lines %||% 0.9,
-                plot_theme = plot_theme
+                plot_theme = plot_theme,
+                show_mean = isTRUE(input$growth_show_mean),
+                show_median = isTRUE(input$growth_show_median),
+                show_band = isTRUE(input$growth_show_band),
+                band_metric = input$growth_band_metric %||% "p25p75",
+                label_stats = isTRUE(input$growth_label_stats)
               )
             }
 
@@ -1277,7 +1362,12 @@ server <- function(input, output, session) {
         facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
-        plot_theme = plot_theme
+        plot_theme = plot_theme,
+        show_mean = isTRUE(input$prom_show_mean),
+        show_median = isTRUE(input$prom_show_median),
+        show_band = isTRUE(input$prom_show_band),
+        band_metric = input$prom_band_metric %||% "p25p75",
+        label_stats = isTRUE(input$prom_label_stats)
       )
     } else if (identical(input$plot_type, "distribucion")) {
       p <- plot_distribucion(
@@ -1289,7 +1379,13 @@ server <- function(input, output, session) {
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,
         alpha_lines = input$alpha_lines %||% 0.9,
-        plot_theme = plot_theme
+        plot_theme = plot_theme,
+        show_mean = isTRUE(input$dist_show_mean),
+        show_median = isTRUE(input$dist_show_median),
+        show_band = isTRUE(input$dist_show_band),
+        band_metric = input$dist_band_metric %||% "p25p75",
+        label_stats = isTRUE(input$dist_label_stats),
+        show_corr = isTRUE(input$dist_show_corr)
       )
     } else if (identical(input$plot_type, "nivel_logro")) {
       p <- plot_nivel_logro(
@@ -1314,7 +1410,12 @@ server <- function(input, output, session) {
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,
         alpha_lines = input$alpha_lines %||% 0.9,
-        plot_theme = plot_theme
+        plot_theme = plot_theme,
+        show_mean = isTRUE(input$growth_show_mean),
+        show_median = isTRUE(input$growth_show_median),
+        show_band = isTRUE(input$growth_show_band),
+        band_metric = input$growth_band_metric %||% "p25p75",
+        label_stats = isTRUE(input$growth_label_stats)
       )
     } else {
       p <- ggplot() + theme_void() + ggtitle("Selecciona un gráfico")

@@ -11,6 +11,10 @@ table_promedio <- function(df, ejes) {
     summarise(
       n = sum(!is.na(.data$valor)),
       promedio = mean(.data$valor, na.rm = TRUE),
+      mediana = median(.data$valor, na.rm = TRUE),
+      sd = stats::sd(.data$valor, na.rm = TRUE),
+      p25 = stats::quantile(.data$valor, probs = 0.25, na.rm = TRUE, names = FALSE),
+      p75 = stats::quantile(.data$valor, probs = 0.75, na.rm = TRUE, names = FALSE),
       .groups = "drop"
     ) %>%
     arrange(.data$year, .data$curso, .data$eje, .data$tipo)
@@ -38,6 +42,36 @@ table_distribucion_stats <- function(df, ejes) {
     arrange(.data$year, .data$curso, .data$eje, .data$tipo)
 }
 
+table_distribucion_corr <- function(df, ejes) {
+  ejes <- unique(as.character(ejes %||% character()))
+  if (length(ejes) < 2) {
+    return(tibble::tibble())
+  }
+
+  eje_x <- ejes[[1]]
+  eje_y <- ejes[[2]]
+
+  df_pairs <- df %>%
+    select(year, curso, all_of(c(eje_x, eje_y))) %>%
+    filter(stats::complete.cases(.))
+
+  if (nrow(df_pairs) == 0) {
+    return(tibble::tibble())
+  }
+
+  df_pairs %>%
+    group_by(.data$year, .data$curso) %>%
+    summarise(
+      n = n(),
+      correlacion = stats::cor(.data[[eje_x]], .data[[eje_y]]),
+      pendiente = stats::coef(stats::lm(.data[[eje_y]] ~ .data[[eje_x]]))[[2]],
+      intercepto = stats::coef(stats::lm(.data[[eje_y]] ~ .data[[eje_x]]))[[1]],
+      .groups = "drop"
+    ) %>%
+    mutate(eje_x = eje_x, eje_y = eje_y) %>%
+    select(.data$year, .data$curso, .data$eje_x, .data$eje_y, .data$n, .data$correlacion, .data$pendiente, .data$intercepto)
+}
+
 table_nivel_logro <- function(df) {
   df_count <- df %>%
     mutate(nivel_chr = as.character(.data$nivel_logro)) %>%
@@ -62,14 +96,23 @@ current_table <- function(
     ejes = NULL,
     dist_kind = NULL,
     tipo_a = NULL,
-    tipo_b = NULL
+    tipo_b = NULL,
+    show_corr = FALSE
 ) {
   if (identical(plot_type, "promedio")) {
     return(table_promedio(df, ejes = ejes))
   }
   if (identical(plot_type, "distribucion")) {
+    stats <- table_distribucion_stats(df, ejes = ejes)
+    if (isTRUE(show_corr) && length(ejes %||% character()) >= 2) {
+      corr <- table_distribucion_corr(df, ejes = ejes)
+      stats <- dplyr::bind_rows(
+        dplyr::mutate(stats, tabla = "resumen"),
+        dplyr::mutate(corr, tabla = "correlacion")
+      )
+    }
     # Para informes suele ser más útil el resumen estadístico.
-    return(table_distribucion_stats(df, ejes = ejes))
+    return(stats)
   }
   if (identical(plot_type, "nivel_logro")) {
     return(table_nivel_logro(df))
