@@ -85,6 +85,9 @@ apply_labels <- function(p, labels) {
 default_title <- function(plot_type, eje = NULL, tipo_a = NULL, tipo_b = NULL) {
   if (identical(plot_type, "promedio")) return(paste("Promedio por curso y tipo —", eje))
   if (identical(plot_type, "distribucion")) return(paste("Distribución —", eje))
+  if (identical(plot_type, "heatmap")) return(paste("Heatmap curso/tipo —", eje))
+  if (identical(plot_type, "violin")) return(paste("Distribución (violín/ridge) —", eje))
+  if (identical(plot_type, "tendencia")) return(paste("Tendencia temporal —", eje))
   if (identical(plot_type, "nivel_logro")) return("Nivel de logro (proporción)")
   if (identical(plot_type, "crecimiento")) return(paste("Crecimiento por estudiante —", eje, "(", tipo_a, "→", tipo_b, ")"))
   "Gráfico"

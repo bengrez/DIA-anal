@@ -11,6 +11,10 @@ preset_capture <- function(input) {
     tipo_a = input$tipo_a %||% NULL,
     tipo_b = input$tipo_b %||% NULL,
     dist_kind = input$dist_kind %||% NULL,
+    heatmap_dim = input$heatmap_dim %||% NULL,
+    violin_kind = input$violin_kind %||% NULL,
+    violin_group = input$violin_group %||% NULL,
+    trend_group = input$trend_group %||% NULL,
     growth_kind = input$growth_kind %||% NULL,
     rank_mode = input$rank_mode %||% NULL,
     rank_n = input$rank_n %||% NULL,
@@ -53,6 +57,10 @@ preset_defaults <- function(ch) {
     tipo_a = if (length(tipos) > 0) tipos[[1]] else NULL,
     tipo_b = if (length(tipos) > 1) tipos[[2]] else if (length(tipos) > 0) tipos[[1]] else NULL,
     dist_kind = "box",
+    heatmap_dim = "curso",
+    violin_kind = "violin",
+    violin_group = "curso",
+    trend_group = "curso",
     growth_kind = "delta",
     rank_mode = "all",
     rank_n = 10,
@@ -109,6 +117,10 @@ preset_is_applied <- function(input, preset) {
   if (!is.null(input$nivel_order) && !is.null(preset$nivel_order) && !eq(input$nivel_order, preset$nivel_order)) return(FALSE)
 
   if (!is.null(input$dist_kind) && !is.null(preset$dist_kind) && !eq(input$dist_kind, preset$dist_kind)) return(FALSE)
+  if (!is.null(input$heatmap_dim) && !is.null(preset$heatmap_dim) && !eq(input$heatmap_dim, preset$heatmap_dim)) return(FALSE)
+  if (!is.null(input$violin_kind) && !is.null(preset$violin_kind) && !eq(input$violin_kind, preset$violin_kind)) return(FALSE)
+  if (!is.null(input$violin_group) && !is.null(preset$violin_group) && !eq(input$violin_group, preset$violin_group)) return(FALSE)
+  if (!is.null(input$trend_group) && !is.null(preset$trend_group) && !eq(input$trend_group, preset$trend_group)) return(FALSE)
   if (!is.null(input$tipo_a) && !is.null(preset$tipo_a) && !eq(input$tipo_a, preset$tipo_a)) return(FALSE)
   if (!is.null(input$tipo_b) && !is.null(preset$tipo_b) && !eq(input$tipo_b, preset$tipo_b)) return(FALSE)
   if (!is.null(input$growth_kind) && !is.null(preset$growth_kind) && !eq(input$growth_kind, preset$growth_kind)) return(FALSE)
@@ -164,6 +176,18 @@ preset_apply_step <- function(session, input, preset) {
   # Opciones por tipo de gráfico (condicionales)
   if (!is.null(preset$dist_kind) && !is.null(input$dist_kind) && !identical(input$dist_kind, preset$dist_kind)) {
     updateRadioButtons(session, "dist_kind", selected = preset$dist_kind)
+  }
+  if (!is.null(preset$heatmap_dim) && !is.null(input$heatmap_dim) && !identical(input$heatmap_dim, preset$heatmap_dim)) {
+    updateSelectInput(session, "heatmap_dim", selected = preset$heatmap_dim)
+  }
+  if (!is.null(preset$violin_kind) && !is.null(input$violin_kind) && !identical(input$violin_kind, preset$violin_kind)) {
+    updateRadioButtons(session, "violin_kind", selected = preset$violin_kind)
+  }
+  if (!is.null(preset$violin_group) && !is.null(input$violin_group) && !identical(input$violin_group, preset$violin_group)) {
+    updateSelectInput(session, "violin_group", selected = preset$violin_group)
+  }
+  if (!is.null(preset$trend_group) && !is.null(input$trend_group) && !identical(input$trend_group, preset$trend_group)) {
+    updateSelectInput(session, "trend_group", selected = preset$trend_group)
   }
   if (!is.null(preset$tipo_a) && !is.null(input$tipo_a) && !identical(input$tipo_a, preset$tipo_a)) {
     updateSelectInput(session, "tipo_a", selected = preset$tipo_a)

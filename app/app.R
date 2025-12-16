@@ -10,7 +10,8 @@ required_packages <- c(
   "zip",
   "dplyr",
   "tidyr",
-  "scales"
+  "scales",
+  "ggridges"
 )
 
 missing <- required_packages[!vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)]
@@ -42,6 +43,9 @@ source(file.path("R", "transform.R"))
 source(file.path("R", "themes.R"))
 source(file.path("R", "plots", "promedio.R"))
 source(file.path("R", "plots", "distribucion.R"))
+source(file.path("R", "plots", "heatmap.R"))
+source(file.path("R", "plots", "violin.R"))
+source(file.path("R", "plots", "tendencia.R"))
 source(file.path("R", "plots", "nivel_logro.R"))
 source(file.path("R", "plots", "crecimiento.R"))
 
@@ -86,8 +90,11 @@ ui <- page_sidebar(
           choices = c(
             "A) Promedio por curso y Tipo" = "promedio",
             "B) Distribución" = "distribucion",
-            "C) Nivel de logro" = "nivel_logro",
-            "D) Crecimiento por estudiante (delta)" = "crecimiento"
+            "C) Heatmap (curso/tipo × eje)" = "heatmap",
+            "D) Violín / Ridgeline" = "violin",
+            "E) Tendencia temporal" = "tendencia",
+            "F) Nivel de logro" = "nivel_logro",
+            "G) Crecimiento por estudiante (delta)" = "crecimiento"
           )
         ),
         uiOutput("filters_ui"),
@@ -431,6 +438,10 @@ server <- function(input, output, session) {
       years = input$year %||% NULL,
       facet = input$facet %||% "off",
       dist_kind = input$dist_kind %||% NULL,
+      heatmap_dim = input$heatmap_dim %||% NULL,
+      violin_kind = input$violin_kind %||% NULL,
+      violin_group = input$violin_group %||% NULL,
+      trend_group = input$trend_group %||% NULL,
       tipo_a = input$tipo_a %||% NULL,
       tipo_b = input$tipo_b %||% NULL,
       growth_kind = input$growth_kind %||% NULL,
@@ -704,7 +715,7 @@ server <- function(input, output, session) {
       )
     }
 
-    if (input$plot_type %in% c("promedio", "distribucion", "crecimiento")) {
+    if (input$plot_type %in% c("promedio", "distribucion", "crecimiento", "heatmap", "violin", "tendencia")) {
       ui_list <- c(
         ui_list,
         list(
@@ -722,6 +733,54 @@ server <- function(input, output, session) {
             "Tipo de distribución",
             choices = c("Boxplot" = "box", "Histograma" = "hist"),
             inline = TRUE
+          )
+        )
+      )
+    }
+
+    if (identical(input$plot_type, "heatmap")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          selectInput(
+            "heatmap_dim",
+            "Eje horizontal",
+            choices = c("Curso" = "curso", "Tipo" = "tipo"),
+            selected = "curso"
+          )
+        )
+      )
+    }
+
+    if (identical(input$plot_type, "violin")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          selectInput(
+            "violin_group",
+            "Agrupar por",
+            choices = c("Curso" = "curso", "Tipo" = "tipo"),
+            selected = "curso"
+          ),
+          radioButtons(
+            "violin_kind",
+            "Tipo de distribución",
+            choices = c("Violín" = "violin", "Ridgeline" = "ridge"),
+            inline = TRUE
+          )
+        )
+      )
+    }
+
+    if (identical(input$plot_type, "tendencia")) {
+      ui_list <- c(
+        ui_list,
+        list(
+          selectInput(
+            "trend_group",
+            "Línea por",
+            choices = c("Curso" = "curso", "Tipo" = "tipo"),
+            selected = "curso"
           )
         )
       )
@@ -782,7 +841,10 @@ server <- function(input, output, session) {
       ejes = input$eje %||% NULL,
       dist_kind = input$dist_kind %||% NULL,
       tipo_a = input$tipo_a %||% NULL,
-      tipo_b = input$tipo_b %||% NULL
+      tipo_b = input$tipo_b %||% NULL,
+      heatmap_dim = input$heatmap_dim %||% NULL,
+      violin_group = input$violin_group %||% NULL,
+      trend_group = input$trend_group %||% NULL
     )
   })
 
@@ -1058,6 +1120,10 @@ server <- function(input, output, session) {
         years = input$year %||% NULL,
         facet = input$facet %||% "off",
         dist_kind = input$dist_kind %||% NULL,
+        heatmap_dim = input$heatmap_dim %||% NULL,
+        violin_kind = input$violin_kind %||% NULL,
+        violin_group = input$violin_group %||% NULL,
+        trend_group = input$trend_group %||% NULL,
         tipo_a = input$tipo_a %||% NULL,
         tipo_b = input$tipo_b %||% NULL,
         growth_kind = input$growth_kind %||% NULL,
@@ -1277,6 +1343,37 @@ server <- function(input, output, session) {
         facet = input$facet %||% "off",
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "heatmap")) {
+      p <- plot_heatmap(
+        df = df,
+        ejes = input$eje,
+        facet = input$facet %||% "off",
+        axis_dim = input$heatmap_dim %||% "curso",
+        palette_fill = input$palette_fill,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "violin")) {
+      p <- plot_violin(
+        df = df,
+        ejes = input$eje,
+        facet = input$facet %||% "off",
+        group_var = input$violin_group %||% "curso",
+        kind = input$violin_kind %||% "violin",
+        palette_fill = input$palette_fill,
+        alpha_bars = input$alpha_bars %||% 0.85,
+        alpha_lines = input$alpha_lines %||% 0.9,
+        plot_theme = plot_theme
+      )
+    } else if (identical(input$plot_type, "tendencia")) {
+      p <- plot_tendencia(
+        df = df,
+        ejes = input$eje,
+        facet = input$facet %||% "off",
+        group_var = input$trend_group %||% "curso",
+        palette_color = input$palette_color,
+        alpha_lines = input$alpha_lines %||% 0.9,
         plot_theme = plot_theme
       )
     } else if (identical(input$plot_type, "distribucion")) {
