@@ -698,6 +698,10 @@ server <- function(input, output, session) {
 
     ui_list <- list()
 
+    if (is.null(ch) || length(df) == 0) {
+      return(helpText("Carga datos para ver filtros y opciones."))
+    }
+
     if (length(ch$fuentes) > 1) {
       ui_list <- c(
         ui_list,
@@ -751,15 +755,21 @@ server <- function(input, output, session) {
           checkboxInput("dist_show_mean", "Línea de promedio", value = FALSE),
           checkboxInput("dist_show_median", "Línea de mediana", value = TRUE),
           checkboxInput("dist_show_band", "Banda (p25–p75 / sd)", value = FALSE),
-          radioButtons(
-            "dist_band_metric",
-            "Métrica de banda",
-            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
-            selected = "p25p75",
-            inline = TRUE
+          conditionalPanel(
+            condition = "input.dist_show_band == true",
+            radioButtons(
+              "dist_band_metric",
+              "Métrica de banda",
+              choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+              selected = "p25p75",
+              inline = TRUE
+            )
           ),
           checkboxInput("dist_label_stats", "Etiquetar n y percentiles", value = FALSE),
-          checkboxInput("dist_show_corr", "Correlación / regresión (≥2 ejes)", value = FALSE)
+          conditionalPanel(
+            condition = "input.eje && input.eje.length >= 2",
+            checkboxInput("dist_show_corr", "Correlación / regresión (≥2 ejes)", value = FALSE)
+          )
           )
         )
       )
@@ -787,12 +797,15 @@ server <- function(input, output, session) {
           checkboxInput("growth_show_mean", "Línea de promedio Δ", value = FALSE),
           checkboxInput("growth_show_median", "Línea de mediana Δ", value = FALSE),
           checkboxInput("growth_show_band", "Banda de intervalo (p25–p75 / sd)", value = FALSE),
-          radioButtons(
-            "growth_band_metric",
-            "Métrica de banda",
-            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
-            selected = "p25p75",
-            inline = TRUE
+          conditionalPanel(
+            condition = "input.growth_show_band == true",
+            radioButtons(
+              "growth_band_metric",
+              "Métrica de banda",
+              choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+              selected = "p25p75",
+              inline = TRUE
+            )
           ),
           checkboxInput("growth_label_stats", "Etiquetar n y percentiles", value = FALSE)
         )
@@ -806,12 +819,15 @@ server <- function(input, output, session) {
           checkboxInput("prom_show_mean", "Línea de promedio", value = TRUE),
           checkboxInput("prom_show_median", "Línea de mediana", value = FALSE),
           checkboxInput("prom_show_band", "Banda de intervalo (p25–p75 / sd)", value = FALSE),
-          radioButtons(
-            "prom_band_metric",
-            "Métrica de banda",
-            choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
-            selected = "p25p75",
-            inline = TRUE
+          conditionalPanel(
+            condition = "input.prom_show_band == true",
+            radioButtons(
+              "prom_band_metric",
+              "Métrica de banda",
+              choices = c("P25–P75" = "p25p75", "±1 sd" = "sd"),
+              selected = "p25p75",
+              inline = TRUE
+            )
           ),
           checkboxInput("prom_label_stats", "Etiquetar n y percentiles", value = FALSE)
         )
