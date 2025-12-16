@@ -6,7 +6,8 @@ plot_crecimiento <- function(
     kind,
     rank_mode,
     rank_n,
-    facet,
+    facet_row,
+    facet_col,
     palette_fill,
     palette_color,
     alpha_bars,
@@ -69,12 +70,7 @@ plot_crecimiento <- function(
       labs(x = NULL, y = paste0(eje, " (%)"), color = NULL) +
       plot_theme
 
-    if (identical(facet, "curso")) {
-      p <- p + facet_wrap(~curso)
-    } else if (identical(facet, "year")) {
-      p <- p + facet_wrap(~year)
-    }
-    return(p)
+    return(apply_facets(p, data = df_long, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off"))
   }
 
   df_delta <- df_delta %>%
@@ -88,10 +84,5 @@ plot_crecimiento <- function(
     labs(x = NULL, y = paste0("Delta ", tipo_b, " - ", tipo_a, " (pp)"), fill = NULL) +
     plot_theme
 
-  if (identical(facet, "curso")) {
-    p <- p + facet_wrap(~curso, scales = "free_y")
-  } else if (identical(facet, "year")) {
-    p <- p + facet_wrap(~year, scales = "free_y")
-  }
-  p
+  apply_facets(p, data = df_delta, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off", scales = "free_y")
 }

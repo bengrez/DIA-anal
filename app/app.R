@@ -99,17 +99,37 @@ ui <- page_sidebar(
         ),
         uiOutput("filters_ui"),
         hr(),
-        selectInput(
-          "facet",
-          "Facets",
-          choices = c(
-            "OFF" = "off",
-            "Por Curso" = "curso",
-            "Por Tipo" = "tipo",
-            "Por Año" = "year",
-            "Por Eje" = "eje"
+        fluidRow(
+          column(
+            6,
+            selectInput(
+              "facet_row",
+              "Facets (fila)",
+              choices = c(
+                "OFF" = "off",
+                "Curso" = "curso",
+                "Tipo" = "tipo",
+                "Año" = "year",
+                "Eje" = "eje"
+              ),
+              selected = "off"
+            )
           ),
-          selected = "off"
+          column(
+            6,
+            selectInput(
+              "facet_col",
+              "Facets (columna)",
+              choices = c(
+                "OFF" = "off",
+                "Curso" = "curso",
+                "Tipo" = "tipo",
+                "Año" = "year",
+                "Eje" = "eje"
+              ),
+              selected = "off"
+            )
+          )
         )
       ),
       accordion_panel(
@@ -163,6 +183,32 @@ ui <- page_sidebar(
     navset_card_tab(
       id = "main_tabs",
       nav_panel(
+        title = "Inicio",
+        value = "inicio",
+        card(
+          card_header("Generador de gráficos DIA"),
+          tags$p("Objetivo: ayudarte a generar gráficos claros y exportables (PNG/ZIP) desde archivos Excel, sin escribir código."),
+          tags$h5("Flujo recomendado"),
+          tags$ol(
+            tags$li("Carga 1–2 archivos Excel en la sección “1) Carga de datos”."),
+            tags$li("Elige el tipo de gráfico y ajusta filtros (curso, año, tipo, eje)."),
+            tags$li("Opcional: usa facets (fila/columna) para comparar dos variables."),
+            tags$li("Ajusta estilo (plantillas, paletas, títulos)."),
+            tags$li("Exporta PNG o ZIP (informe / lote).")
+          ),
+          tags$h5("Privacidad"),
+          tags$ul(
+            tags$li("Los datos se procesan localmente en tu computador."),
+            tags$li("Activa “Modo anónimo” para evitar exportar nombres reales.")
+          ),
+          tags$div(
+            style = "display:flex; gap: 8px; flex-wrap: wrap;",
+            actionButton("go_grafico", "Ir a gráficos", class = "btn-primary"),
+            actionButton("go_asistente", "Usar asistente", class = "btn-secondary")
+          )
+        )
+      ),
+      nav_panel(
         title = "Gráfico",
         value = "grafico",
         plotOutput("plot", height = "650px"),
@@ -210,6 +256,22 @@ server <- function(input, output, session) {
       q("no")
     })
   }
+
+  observeEvent(list(input$facet_row, input$facet_col), {
+    req(input$facet_row, input$facet_col)
+    if (!identical(input$facet_row, "off") && identical(input$facet_row, input$facet_col)) {
+      updateSelectInput(session, "facet_col", selected = "off")
+      showNotification("Facet columna no puede ser igual a facet fila; se desactivó la columna.", type = "message")
+    }
+  }, ignoreInit = TRUE)
+
+  observeEvent(input$go_grafico, {
+    updateTabsetPanel(session, "main_tabs", selected = "grafico")
+  })
+
+  observeEvent(input$go_asistente, {
+    updateTabsetPanel(session, "main_tabs", selected = "asistente")
+  })
 
   output$sheet1_ui <- renderUI({
     req(input$file1)
@@ -375,6 +437,13 @@ server <- function(input, output, session) {
       if (x %in% allowed) x else allowed[[1]]
     }
 
+    facet_allowed <- c("off", "curso", "tipo", "year", "eje")
+    preset$facet_row <- sanitize_single(preset$facet_row %||% preset$facet %||% "off", facet_allowed)
+    preset$facet_col <- sanitize_single(preset$facet_col %||% "off", facet_allowed)
+    if (!identical(preset$facet_row, "off") && identical(preset$facet_row, preset$facet_col)) {
+      preset$facet_col <- "off"
+    }
+
     preset$curso <- sanitize_multi(preset$curso, ch$cursos)
     preset$year <- sanitize_multi(preset$year, ch$years)
     preset$tipo <- sanitize_multi(preset$tipo, ch$tipos)
@@ -432,7 +501,8 @@ server <- function(input, output, session) {
       cursos = input$curso %||% NULL,
       tipos = input$tipo %||% NULL,
       years = input$year %||% NULL,
-      facet = input$facet %||% "off",
+      facet_row = input$facet_row %||% "off",
+      facet_col = input$facet_col %||% "off",
       dist_kind = input$dist_kind %||% NULL,
       heatmap_dim = input$heatmap_dim %||% NULL,
       violin_kind = input$violin_kind %||% NULL,
@@ -505,8 +575,11 @@ server <- function(input, output, session) {
       return()
     }
 
-    if (!is.null(pending$facet) && !identical(input$facet, pending$facet)) {
-      updateSelectInput(session, "facet", selected = pending$facet)
+    if (!is.null(pending$facet_row) && !identical(input$facet_row, pending$facet_row)) {
+      updateSelectInput(session, "facet_row", selected = pending$facet_row)
+    }
+    if (!is.null(pending$facet_col) && !identical(input$facet_col, pending$facet_col)) {
+      updateSelectInput(session, "facet_col", selected = pending$facet_col)
     }
 
     if (identical(input$plot_type, "distribucion") &&
@@ -526,7 +599,8 @@ server <- function(input, output, session) {
     }
 
     done <- TRUE
-    if (!is.null(pending$facet) && !identical(input$facet, pending$facet)) done <- FALSE
+    if (!is.null(pending$facet_row) && !identical(input$facet_row, pending$facet_row)) done <- FALSE
+    if (!is.null(pending$facet_col) && !identical(input$facet_col, pending$facet_col)) done <- FALSE
     if (identical(input$plot_type, "distribucion") && !is.null(pending$dist_kind)) {
       if (is.null(input$dist_kind) || !identical(input$dist_kind, pending$dist_kind)) done <- FALSE
     }
@@ -1114,7 +1188,8 @@ server <- function(input, output, session) {
         cursos = input$curso %||% NULL,
         tipos = input$tipo %||% NULL,
         years = input$year %||% NULL,
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         dist_kind = input$dist_kind %||% NULL,
         heatmap_dim = input$heatmap_dim %||% NULL,
         violin_kind = input$violin_kind %||% NULL,
@@ -1220,7 +1295,8 @@ server <- function(input, output, session) {
               p <- plot_promedio(
                 df = df_job,
                 ejes = eg,
-                facet = input$facet %||% "off",
+                facet_row = input$facet_row %||% "off",
+                facet_col = input$facet_col %||% "off",
                 palette_fill = input$palette_fill,
                 alpha_bars = input$alpha_bars %||% 0.85,
                 plot_theme = plot_theme
@@ -1230,7 +1306,8 @@ server <- function(input, output, session) {
                 df = df_job,
                 ejes = eg,
                 kind = input$dist_kind %||% "box",
-                facet = input$facet %||% "off",
+                facet_row = input$facet_row %||% "off",
+                facet_col = input$facet_col %||% "off",
                 palette_fill = input$palette_fill,
                 palette_color = input$palette_color,
                 alpha_bars = input$alpha_bars %||% 0.85,
@@ -1240,7 +1317,8 @@ server <- function(input, output, session) {
             } else if (identical(plot_type, "nivel_logro")) {
               p <- plot_nivel_logro(
                 df = df_job,
-                facet = input$facet %||% "tipo",
+                facet_row = input$facet_row %||% "off",
+                facet_col = input$facet_col %||% "off",
                 palette_fill = input$palette_fill,
                 alpha_bars = input$alpha_bars %||% 0.85,
                 plot_theme = plot_theme
@@ -1254,7 +1332,8 @@ server <- function(input, output, session) {
                 kind = input$growth_kind %||% "delta",
                 rank_mode = input$rank_mode %||% "all",
                 rank_n = input$rank_n %||% 10,
-                facet = input$facet %||% "curso",
+                facet_row = input$facet_row %||% "off",
+                facet_col = input$facet_col %||% "off",
                 palette_fill = input$palette_fill,
                 palette_color = input$palette_color,
                 alpha_bars = input$alpha_bars %||% 0.85,
@@ -1336,7 +1415,8 @@ server <- function(input, output, session) {
       p <- plot_promedio(
         df = df,
         ejes = input$eje,
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
@@ -1345,7 +1425,8 @@ server <- function(input, output, session) {
       p <- plot_heatmap(
         df = df,
         ejes = input$eje,
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         axis_dim = input$heatmap_dim %||% "curso",
         palette_fill = input$palette_fill,
         plot_theme = plot_theme
@@ -1354,7 +1435,8 @@ server <- function(input, output, session) {
       p <- plot_violin(
         df = df,
         ejes = input$eje,
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         group_var = input$violin_group %||% "curso",
         kind = input$violin_kind %||% "violin",
         palette_fill = input$palette_fill,
@@ -1366,7 +1448,8 @@ server <- function(input, output, session) {
       p <- plot_tendencia(
         df = df,
         ejes = input$eje,
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         group_var = input$trend_group %||% "curso",
         palette_color = input$palette_color,
         alpha_lines = input$alpha_lines %||% 0.9,
@@ -1377,7 +1460,8 @@ server <- function(input, output, session) {
         df = df,
         ejes = input$eje,
         kind = input$dist_kind %||% "box",
-        facet = input$facet %||% "off",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         palette_fill = input$palette_fill,
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,
@@ -1387,7 +1471,8 @@ server <- function(input, output, session) {
     } else if (identical(input$plot_type, "nivel_logro")) {
       p <- plot_nivel_logro(
         df = df,
-        facet = input$facet %||% "tipo",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
@@ -1402,7 +1487,8 @@ server <- function(input, output, session) {
         kind = input$growth_kind %||% "delta",
         rank_mode = input$rank_mode %||% "all",
         rank_n = input$rank_n %||% 10,
-        facet = input$facet %||% "curso",
+        facet_row = input$facet_row %||% "off",
+        facet_col = input$facet_col %||% "off",
         palette_fill = input$palette_fill,
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,

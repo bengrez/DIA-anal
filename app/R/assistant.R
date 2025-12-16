@@ -35,16 +35,33 @@ assistant_settings_label <- function(settings) {
   settings <- settings %||% list()
   parts <- character()
 
-  if (!is.null(settings$facet) && !identical(settings$facet, "off")) {
-    facet_label <- switch(
-      settings$facet,
-      curso = "Facets: Curso",
-      tipo = "Facets: Tipo",
-      year = "Facets: Año",
-      eje = "Facets: Eje",
-      paste0("Facets: ", settings$facet)
+  facet_row <- settings$facet_row %||% "off"
+  facet_col <- settings$facet_col %||% "off"
+  if (!identical(facet_row, "off") || !identical(facet_col, "off")) {
+    facet_row_lbl <- switch(
+      facet_row,
+      curso = "Curso",
+      tipo = "Tipo",
+      year = "Año",
+      eje = "Eje",
+      if (!identical(facet_row, "off")) facet_row else NULL
     )
-    parts <- c(parts, facet_label)
+    facet_col_lbl <- switch(
+      facet_col,
+      curso = "Curso",
+      tipo = "Tipo",
+      year = "Año",
+      eje = "Eje",
+      if (!identical(facet_col, "off")) facet_col else NULL
+    )
+
+    facet_txt <- if (!identical(facet_row, "off") && !identical(facet_col, "off")) {
+      paste0("Facets: ", facet_row_lbl, " ~ ", facet_col_lbl)
+    } else {
+      paste0("Facets: ", facet_row_lbl %||% facet_col_lbl)
+    }
+
+    parts <- c(parts, facet_txt)
   }
 
   if (!is.null(settings$dist_kind)) {
@@ -100,17 +117,17 @@ assistant_recommendation <- function(
     }
   }
 
-  settings <- list(facet = "off")
+  settings <- list(facet_row = "off", facet_col = "off")
 
   if (identical(want_facets, "yes")) {
     if (identical(facet_year, "yes")) {
-      settings$facet <- "year"
+      settings$facet_row <- "year"
     } else if (identical(facet_curso, "yes")) {
-      settings$facet <- "curso"
+      settings$facet_row <- "curso"
     } else if (identical(facet_tipo, "yes")) {
-      settings$facet <- "tipo"
+      settings$facet_row <- "tipo"
     } else if (identical(facet_eje, "yes")) {
-      settings$facet <- "eje"
+      settings$facet_row <- "eje"
     }
   }
 
@@ -133,4 +150,3 @@ assistant_recommendation <- function(
     settings_label = assistant_settings_label(settings)
   )
 }
-

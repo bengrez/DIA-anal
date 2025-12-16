@@ -1,7 +1,8 @@
 plot_violin <- function(
     df,
     ejes,
-    facet,
+    facet_row,
+    facet_col,
     group_var = "curso",
     kind = "violin",
     palette_fill,
@@ -48,16 +49,7 @@ plot_violin <- function(
       theme(axis.text.x = element_text(angle = 30, hjust = 1))
   }
 
-  facet <- facet %||% "off"
-  if (identical(facet, "year")) {
-    p <- p + facet_wrap(~year)
-  } else if (identical(facet, "tipo") && !identical(group_var, "tipo")) {
-    p <- p + facet_wrap(~tipo)
-  } else if (identical(facet, "curso") && !identical(group_var, "curso")) {
-    p <- p + facet_wrap(~curso)
-  } else if (identical(facet, "eje")) {
-    p <- p + facet_wrap(~eje)
-  }
-
-  p
+  if (identical(facet_row, group_var)) facet_row <- "off"
+  if (identical(facet_col, group_var)) facet_col <- "off"
+  apply_facets(p, data = df_plot, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off")
 }

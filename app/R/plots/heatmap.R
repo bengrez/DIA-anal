@@ -1,4 +1,4 @@
-plot_heatmap <- function(df, ejes, facet, axis_dim = "curso", palette_fill, plot_theme) {
+plot_heatmap <- function(df, ejes, facet_row, facet_col, axis_dim = "curso", palette_fill, plot_theme) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {
     stop("Selecciona al menos 1 eje.", call. = FALSE)
@@ -21,16 +21,7 @@ plot_heatmap <- function(df, ejes, facet, axis_dim = "curso", palette_fill, plot
     plot_theme +
     theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
-  facet <- facet %||% "off"
-  if (identical(facet, "year")) {
-    p <- p + facet_wrap(~year)
-  } else if (identical(facet, "tipo") && !identical(axis_dim, "tipo")) {
-    p <- p + facet_wrap(~tipo)
-  } else if (identical(facet, "curso") && !identical(axis_dim, "curso")) {
-    p <- p + facet_wrap(~curso)
-  } else if (identical(facet, "eje")) {
-    p <- p + facet_wrap(~eje)
-  }
-
-  p
+  if (identical(facet_row, axis_dim)) facet_row <- "off"
+  if (identical(facet_col, axis_dim)) facet_col <- "off"
+  apply_facets(p, data = df_long, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off")
 }

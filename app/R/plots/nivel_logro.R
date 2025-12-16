@@ -1,4 +1,4 @@
-plot_nivel_logro <- function(df, facet, palette_fill, alpha_bars, plot_theme) {
+plot_nivel_logro <- function(df, facet_row, facet_col, palette_fill, alpha_bars, plot_theme) {
   df_count <- df %>%
     mutate(nivel_logro_chr = as.character(.data$nivel_logro)) %>%
     filter(!is.na(.data$nivel_logro_chr), nzchar(.data$nivel_logro_chr)) %>%
@@ -14,50 +14,32 @@ plot_nivel_logro <- function(df, facet, palette_fill, alpha_bars, plot_theme) {
   colors <- palette_values(length(levels_fill), palette_fill)
   names(colors) <- levels_fill
 
-  if (identical(facet, "off")) {
-    df_count <- df_count %>% mutate(curso_tipo = paste(.data$curso, .data$tipo, .data$year, sep = " | "))
-    return(
-      ggplot(df_count, aes(x = .data$curso_tipo, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
-        scale_y_continuous(labels = scales::percent) +
-        scale_fill_manual(values = colors) +
-        labs(x = "Curso | Tipo | Año", y = "Proporción", fill = "Nivel de logro") +
-        plot_theme +
-        theme(axis.text.x = element_text(angle = 30, hjust = 1))
-    )
+  facet_row <- facet_row %||% "off"
+  facet_col <- facet_col %||% "off"
+
+  facet_cols <- c(facet_key_to_col(facet_row), facet_key_to_col(facet_col))
+  facet_cols <- unique(facet_cols[!is.null(facet_cols)])
+
+  # Definir X según qué variables ya están en facets (para evitar barras mezcladas).
+  x_parts <- c("curso")
+  if (!("tipo" %in% facet_cols)) x_parts <- c(x_parts, "tipo")
+  if (!("year" %in% facet_cols)) x_parts <- c(x_parts, "year")
+
+  if (length(x_parts) == 1) {
+    df_count <- df_count %>% mutate(x_label = .data$curso)
+    x_lab <- "Curso"
+  } else {
+    df_count$x_label <- do.call(interaction, c(df_count[x_parts], list(sep = " | ", drop = TRUE)))
+    x_lab <- paste(tools::toTitleCase(x_parts), collapse = " | ")
   }
 
-  if (identical(facet, "curso")) {
-    return(
-      ggplot(df_count, aes(x = .data$tipo, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
-        scale_y_continuous(labels = scales::percent) +
-        scale_fill_manual(values = colors) +
-        facet_wrap(~curso) +
-        labs(x = "Tipo", y = "Proporción", fill = "Nivel de logro") +
-        plot_theme
-    )
-  }
-
-  if (identical(facet, "year")) {
-    return(
-      ggplot(df_count, aes(x = .data$curso, y = .data$n, fill = .data$nivel_logro)) +
-        geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
-        scale_y_continuous(labels = scales::percent) +
-        scale_fill_manual(values = colors) +
-        facet_wrap(~year) +
-        labs(x = "Curso", y = "Proporción", fill = "Nivel de logro") +
-        plot_theme +
-        theme(axis.text.x = element_text(angle = 30, hjust = 1))
-    )
-  }
-
-  ggplot(df_count, aes(x = .data$curso, y = .data$n, fill = .data$nivel_logro)) +
+  p <- ggplot(df_count, aes(x = .data$x_label, y = .data$n, fill = .data$nivel_logro)) +
     geom_col(position = "fill", alpha = alpha_bars %||% 0.85) +
     scale_y_continuous(labels = scales::percent) +
     scale_fill_manual(values = colors) +
-    facet_wrap(~tipo) +
-    labs(x = "Curso", y = "Proporción", fill = "Nivel de logro") +
+    labs(x = x_lab, y = "Proporción", fill = "Nivel de logro") +
     plot_theme +
     theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+  apply_facets(p, data = df_count, facet_row = facet_row, facet_col = facet_col)
 }

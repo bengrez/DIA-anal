@@ -173,3 +173,36 @@ save_png_ggsave <- function(plot, path, width_px, height_px, style_preset) {
     bg = bg
   )
 }
+
+facet_key_to_col <- function(key) {
+  key <- as.character(key %||% "off")
+  switch(
+    key,
+    off = NULL,
+    curso = "curso",
+    tipo = "tipo",
+    year = "year",
+    eje = "eje",
+    NULL
+  )
+}
+
+apply_facets <- function(plot, data, facet_row = "off", facet_col = "off", scales = "fixed") {
+  row_col <- facet_key_to_col(facet_row)
+  col_col <- facet_key_to_col(facet_col)
+
+  if (!is.null(row_col) && !row_col %in% names(data)) row_col <- NULL
+  if (!is.null(col_col) && !col_col %in% names(data)) col_col <- NULL
+  if (!is.null(row_col) && !is.null(col_col) && identical(row_col, col_col)) col_col <- NULL
+
+  if (is.null(row_col) && is.null(col_col)) {
+    return(plot)
+  }
+
+  if (!is.null(row_col) && !is.null(col_col)) {
+    return(plot + ggplot2::facet_grid(stats::as.formula(paste(row_col, "~", col_col)), scales = scales))
+  }
+
+  var <- row_col %||% col_col
+  plot + ggplot2::facet_wrap(stats::as.formula(paste("~", var)), scales = scales)
+}

@@ -4,7 +4,8 @@ interpretation_points <- function(
     cursos = NULL,
     tipos = NULL,
     years = NULL,
-    facet = "off",
+    facet_row = "off",
+    facet_col = "off",
     dist_kind = NULL,
     heatmap_dim = NULL,
     violin_kind = NULL,
@@ -26,10 +27,14 @@ interpretation_points <- function(
   if (length(cursos) > 0) scope <- c(scope, paste0("Curso(s): ", paste(cursos, collapse = ", ")))
   if (length(tipos) > 0) scope <- c(scope, paste0("Tipo(s): ", paste(tipos, collapse = ", ")))
   if (length(ejes) > 0) scope <- c(scope, paste0("Eje(s): ", paste(ejes, collapse = ", ")))
-  if (identical(facet, "off")) {
+  facet_row <- facet_row %||% "off"
+  facet_col <- facet_col %||% "off"
+  if (identical(facet_row, "off") && identical(facet_col, "off")) {
     facet_txt <- "Sin facets"
+  } else if (!identical(facet_row, "off") && !identical(facet_col, "off")) {
+    facet_txt <- paste0("Facets: ", facet_row, " ~ ", facet_col)
   } else {
-    facet_txt <- paste0("Facets: ", facet)
+    facet_txt <- paste0("Facets: ", if (!identical(facet_row, "off")) facet_row else facet_col)
   }
 
   common <- c(
@@ -132,4 +137,3 @@ interpretation_points <- function(
 
   list(title = "Texto sugerido", bullets = common)
 }
-

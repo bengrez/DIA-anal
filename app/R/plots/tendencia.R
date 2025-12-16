@@ -1,7 +1,8 @@
 plot_tendencia <- function(
     df,
     ejes,
-    facet,
+    facet_row,
+    facet_col,
     group_var = "curso",
     palette_color,
     alpha_lines,
@@ -39,14 +40,7 @@ plot_tendencia <- function(
     labs(x = "Año", y = "Promedio (%)") +
     plot_theme
 
-  facet <- facet %||% "off"
-  if (identical(facet, "eje")) {
-    p <- p + facet_wrap(~eje)
-  } else if (identical(facet, "curso") && !identical(group_var, "curso")) {
-    p <- p + facet_wrap(~curso)
-  } else if (identical(facet, "tipo") && !identical(group_var, "tipo")) {
-    p <- p + facet_wrap(~tipo)
-  }
-
-  p
+  if (identical(facet_row, group_var)) facet_row <- "off"
+  if (identical(facet_col, group_var)) facet_col <- "off"
+  apply_facets(p, data = df_long, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off")
 }

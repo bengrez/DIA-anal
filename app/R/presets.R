@@ -1,8 +1,9 @@
 preset_capture <- function(input) {
   list(
-    version = 1,
+    version = 2,
     plot_type = input$plot_type %||% "promedio",
-    facet = input$facet %||% "off",
+    facet_row = input$facet_row %||% "off",
+    facet_col = input$facet_col %||% "off",
     curso = input$curso %||% NULL,
     year = input$year %||% NULL,
     tipo = input$tipo %||% NULL,
@@ -46,9 +47,10 @@ preset_defaults <- function(ch) {
   fuentes <- ch$fuentes %||% character()
 
   list(
-    version = 1,
+    version = 2,
     plot_type = "promedio",
-    facet = "off",
+    facet_row = "off",
+    facet_col = "off",
     curso = cursos,
     year = years,
     tipo = tipos,
@@ -89,7 +91,8 @@ preset_is_applied <- function(input, preset) {
 
   # Siempre presentes
   if (!eq(input$plot_type, preset$plot_type)) return(FALSE)
-  if (!eq(input$facet, preset$facet)) return(FALSE)
+  if (!eq(input$facet_row, preset$facet_row %||% preset$facet %||% "off")) return(FALSE)
+  if (!eq(input$facet_col, preset$facet_col %||% "off")) return(FALSE)
   if (!eq(input$style_preset, preset$style_preset)) return(FALSE)
   if (!eq(input$palette_fill, preset$palette_fill)) return(FALSE)
   if (!eq(input$palette_color, preset$palette_color)) return(FALSE)
@@ -206,8 +209,17 @@ preset_apply_step <- function(session, input, preset) {
   }
 
   # Estilo
-  if (!is.null(preset$facet) && !identical(input$facet, preset$facet)) {
-    updateSelectInput(session, "facet", selected = preset$facet)
+  if (is.null(preset$facet_row) && !is.null(preset$facet)) {
+    preset$facet_row <- preset$facet
+  }
+  if (is.null(preset$facet_col)) {
+    preset$facet_col <- "off"
+  }
+  if (!is.null(preset$facet_row) && !is.null(input$facet_row) && !identical(input$facet_row, preset$facet_row)) {
+    updateSelectInput(session, "facet_row", selected = preset$facet_row)
+  }
+  if (!is.null(preset$facet_col) && !is.null(input$facet_col) && !identical(input$facet_col, preset$facet_col)) {
+    updateSelectInput(session, "facet_col", selected = preset$facet_col)
   }
   if (!is.null(preset$style_preset) && !identical(input$style_preset, preset$style_preset)) {
     updateSelectInput(session, "style_preset", selected = preset$style_preset)

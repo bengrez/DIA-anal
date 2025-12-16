@@ -1,4 +1,4 @@
-plot_distribucion <- function(df, ejes, kind, facet, palette_fill, palette_color, alpha_bars, alpha_lines, plot_theme) {
+plot_distribucion <- function(df, ejes, kind, facet_row, facet_col, palette_fill, palette_color, alpha_bars, alpha_lines, plot_theme) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {
     stop("Selecciona al menos 1 eje.", call. = FALSE)
@@ -38,16 +38,7 @@ plot_distribucion <- function(df, ejes, kind, facet, palette_fill, palette_color
       labs(x = "Porcentaje (%)", y = "Densidad", fill = "Tipo") +
       plot_theme
 
-    if (identical(facet, "curso")) {
-      p <- p + facet_wrap(~curso)
-    } else if (identical(facet, "tipo")) {
-      p <- p + facet_wrap(~tipo)
-    } else if (identical(facet, "year")) {
-      p <- p + facet_wrap(~year)
-    } else if (identical(facet, "eje")) {
-      p <- p + facet_wrap(~eje)
-    }
-    return(p)
+    return(apply_facets(p, data = df_plot, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off"))
   }
 
   p <- ggplot(df_plot, aes(x = .data$curso, y = .data$valor, fill = .data$tipo)) +
@@ -58,14 +49,5 @@ plot_distribucion <- function(df, ejes, kind, facet, palette_fill, palette_color
     plot_theme +
     theme(axis.text.x = element_text(angle = 30, hjust = 1))
 
-  if (identical(facet, "tipo")) {
-    p <- p + facet_wrap(~tipo)
-  } else if (identical(facet, "curso")) {
-    p <- p + facet_wrap(~curso)
-  } else if (identical(facet, "year")) {
-    p <- p + facet_wrap(~year)
-  } else if (identical(facet, "eje")) {
-    p <- p + facet_wrap(~eje)
-  }
-  p
+  apply_facets(p, data = df_plot, facet_row = facet_row %||% "off", facet_col = facet_col %||% "off")
 }

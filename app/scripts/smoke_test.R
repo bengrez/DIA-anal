@@ -43,7 +43,8 @@ dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 p1 <- plot_promedio(
   df,
   ejes = eje,
-  facet = "off",
+  facet_row = "off",
+  facet_col = "off",
   palette_fill = "Okabe-Ito",
   alpha_bars = 0.85,
   plot_theme = theme_plot
@@ -54,7 +55,8 @@ p2 <- plot_distribucion(
   df,
   ejes = eje,
   kind = "box",
-  facet = "tipo",
+  facet_row = "tipo",
+  facet_col = "off",
   palette_fill = "Okabe-Ito",
   palette_color = "Okabe-Ito",
   alpha_bars = 0.75,
@@ -63,7 +65,7 @@ p2 <- plot_distribucion(
 )
 save_png_ggsave(p2, file.path(out_dir, "distribucion.png"), 1200, 800, style_preset = "classic")
 
-p3 <- plot_nivel_logro(df, facet = "tipo", palette_fill = "Okabe-Ito", alpha_bars = 0.85, plot_theme = theme_plot)
+p3 <- plot_nivel_logro(df, facet_row = "tipo", facet_col = "off", palette_fill = "Okabe-Ito", alpha_bars = 0.85, plot_theme = theme_plot)
 save_png_ggsave(p3, file.path(out_dir, "nivel_logro.png"), 1200, 800, style_preset = "classic")
 
 tipos <- sort(unique(df$tipo))
@@ -76,7 +78,8 @@ if (length(tipos) >= 2) {
     kind = "delta",
     rank_mode = "top",
     rank_n = 10,
-    facet = "curso",
+    facet_row = "curso",
+    facet_col = "off",
     palette_fill = "Okabe-Ito",
     palette_color = "Okabe-Ito",
     alpha_bars = 0.85,
