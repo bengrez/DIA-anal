@@ -4,6 +4,7 @@
 required_packages <- c(
   "shiny",
   "bslib",
+  "shinyFiles",
   "ggplot2",
   "readxl",
   "writexl",
@@ -52,7 +53,21 @@ source(file.path("R", "plots", "crecimiento.R"))
 
 options(shiny.maxRequestSize = 100 * 1024^2) # 100 MB
 
-ui <- page_sidebar(
+ui <- tagList(
+  tags$head(
+    tags$style(
+      HTML(
+        "
+        /* Limpieza del panel izquierdo: no mostrar nombres de archivos seleccionados */
+        .shiny-file-input input[type=file] { color: transparent !important; }
+        .shiny-file-input input[type=file]::file-selector-button { color: inherit !important; }
+        .shiny-file-input input[type=file]::-webkit-file-upload-button { color: inherit !important; }
+        .shiny-file-input .fileinput-filename { display: none !important; }
+        "
+      )
+    )
+  ),
+  page_sidebar(
   title = "Gráficos DIA (MVP)",
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   sidebar = sidebar(
@@ -83,11 +98,16 @@ ui <- page_sidebar(
         conditionalPanel(
           condition = "input.data_mode == 'folder'",
           tags$small(class = "text-muted", "Lee archivos .xls exportados por la plataforma DIA (tabla desde fila 13)."),
-          textInput("folder_path", "Carpeta con archivos .xls", value = "../data_in"),
+          shinyFiles::shinyDirButton(
+            "folder_choose",
+            "Elegir carpeta…",
+            title = "Selecciona la carpeta que contiene los archivos .xls del DIA",
+            multiple = FALSE
+          ),
+          uiOutput("folder_path_ui"),
           checkboxInput("folder_recursive", "Incluir subcarpetas", value = FALSE),
           actionButton("folder_load", "Cargar carpeta", class = "btn-primary"),
-          uiOutput("folder_load_ui"),
-          tableOutput("folder_manifest")
+          uiOutput("folder_load_ui")
         ),
         checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
         conditionalPanel(
@@ -233,6 +253,34 @@ ui <- page_sidebar(
         )
       ),
       nav_panel(
+        title = "Data",
+        value = "data",
+        layout_columns(
+          card(
+            card_header("Resumen de datos cargados"),
+            uiOutput("summary_ui"),
+            uiOutput("data_details_ui")
+          ),
+          card(
+            card_header("Alumnos por curso y tipo"),
+            plotOutput("data_overview_plot", height = "360px")
+          ),
+          col_widths = c(6, 6)
+        ),
+        card(
+          card_header("Tabla resumen (combinaciones)"),
+          tableOutput("data_summary_table")
+        ),
+        conditionalPanel(
+          condition = "input.data_mode == 'folder'",
+          card(
+            card_header("Archivos importados (DIA plataforma)"),
+            checkboxInput("show_filenames", "Mostrar nombre del archivo (avanzado)", value = FALSE),
+            tableOutput("folder_manifest")
+          )
+        )
+      ),
+      nav_panel(
         title = "Gráfico",
         value = "grafico",
         plotOutput("plot", height = "650px"),
@@ -270,6 +318,7 @@ ui <- page_sidebar(
     col_widths = c(12)
   )
 )
+)
 
 server <- function(input, output, session) {
   # Recomendación para empaquetado tipo RInno/Electron:
@@ -306,16 +355,43 @@ server <- function(input, output, session) {
   })
 
   folder_state <- reactiveVal(NULL)
+  folder_selected <- reactiveVal(NULL)
+
+  default_folder <- tryCatch(normalizePath("../data_in", winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
+  if (!is.na(default_folder) && dir.exists(default_folder)) {
+    folder_selected(default_folder)
+  }
+
+  volumes <- shinyFiles::getVolumes()
+  shinyFiles::shinyDirChoose(input, "folder_choose", roots = volumes, session = session)
+
+  observeEvent(input$folder_choose, {
+    chosen <- shinyFiles::parseDirPath(volumes, input$folder_choose)
+    if (length(chosen) == 0) return()
+    folder <- tryCatch(normalizePath(chosen[[1]], winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
+    if (is.na(folder) || !dir.exists(folder)) return()
+    folder_selected(folder)
+    folder_state(NULL)
+  }, ignoreInit = TRUE)
+
+  output$folder_path_ui <- renderUI({
+    folder <- folder_selected()
+    if (is.null(folder) || !nzchar(folder)) {
+      return(tags$small(class = "text-muted", "Carpeta: (no seleccionada)"))
+    }
+    tags$small(class = "text-muted", title = folder, paste0("Carpeta seleccionada: ", basename(folder)))
+  })
 
   observeEvent(input$folder_load, {
-    req(input$folder_path)
+    folder <- folder_selected()
+    validate(need(!is.null(folder) && nzchar(folder), "Selecciona una carpeta con “Elegir carpeta…”."))
     folder_state(NULL)
 
     res <- tryCatch(
       load_dia_platform_folder(
-        folder_path = input$folder_path,
+        folder_path = folder,
         recursive = isTRUE(input$folder_recursive),
-        dataset_name = paste0("Carpeta: ", basename(input$folder_path))
+        dataset_name = paste0("Carpeta: ", basename(folder))
       ),
       error = function(e) {
         showNotification(e$message, type = "error", duration = NULL)
@@ -337,7 +413,11 @@ server <- function(input, output, session) {
   output$folder_load_ui <- renderUI({
     st <- folder_state()
     if (is.null(st)) {
-      return(tags$small(class = "text-muted", "Selecciona una carpeta y presiona “Cargar carpeta”."))
+      folder <- folder_selected()
+      if (is.null(folder) || !nzchar(folder)) {
+        return(tags$small(class = "text-muted", "Selecciona una carpeta con “Elegir carpeta…” y luego presiona “Cargar carpeta”."))
+      }
+      return(tags$small(class = "text-muted", "Carpeta lista. Presiona “Cargar carpeta”."))
     }
 
     ok_n <- sum(st$manifest$status == "ok", na.rm = TRUE)
@@ -351,7 +431,30 @@ server <- function(input, output, session) {
   output$folder_manifest <- renderTable({
     st <- folder_state()
     if (is.null(st)) return(NULL)
-    utils::head(st$manifest, 60)
+
+    df <- st$manifest
+    if (!isTRUE(input$show_filenames)) {
+      df$file <- NULL
+    }
+
+    keep <- intersect(names(df), c("file", "area", "curso", "tipo", "year", "status", "message"))
+    df <- df[, keep, drop = FALSE]
+
+    if ("status" %in% names(df)) {
+      df$status <- ifelse(df$status == "ok", "OK", "Error")
+    }
+
+    rename <- c(
+      file = "Archivo",
+      area = "Área",
+      curso = "Curso",
+      tipo = "Tipo",
+      year = "Año",
+      status = "Estado",
+      message = "Mensaje"
+    )
+    names(df) <- unname(rename[names(df)])
+    df
   })
 
   output$sheet1_ui <- renderUI({
@@ -713,7 +816,8 @@ server <- function(input, output, session) {
       read_dia_excel(
         path = input$file1$datapath,
         sheet = input$sheet1 %||% 1,
-        source_name = input$file1$name
+        source_name = "Archivo 1",
+        source_file = input$file1$name
       ),
       error = function(e) {
         validate(need(FALSE, paste0("Error en Archivo 1: ", e$message)))
@@ -728,7 +832,8 @@ server <- function(input, output, session) {
       read_dia_excel(
         path = input$file2$datapath,
         sheet = input$sheet2 %||% 1,
-        source_name = input$file2$name
+        source_name = "Archivo 2",
+        source_file = input$file2$name
       ),
       error = function(e) {
         validate(need(FALSE, paste0("Error en Archivo 2: ", e$message)))
@@ -846,6 +951,79 @@ server <- function(input, output, session) {
         )
       }
     )
+  })
+
+  output$data_details_ui <- renderUI({
+    df <- data_clean()
+    ch <- choices()
+
+    rbds <- sort(unique(df$rbd[!is.na(df$rbd) & nzchar(df$rbd)]))
+    years <- sort(unique(df$year[!is.na(df$year)]))
+
+    details <- list(
+      tags$small(class = "text-muted", paste0("Años: ", paste(years, collapse = ", ")))
+    )
+
+    if (length(rbds) > 0) {
+      details <- c(details, list(tags$small(class = "text-muted", paste0("RBD: ", paste(rbds, collapse = ", ")))))
+    }
+
+    if (length(ch$tipos) > 0) {
+      details <- c(details, list(tags$small(class = "text-muted", paste0("Tipos: ", paste(ch$tipos, collapse = ", ")))))
+    }
+
+    if (identical(input$data_mode %||% "xlsx", "folder")) {
+      st <- folder_state()
+      if (!is.null(st)) {
+        ok_n <- sum(st$manifest$status == "ok", na.rm = TRUE)
+        err_n <- sum(st$manifest$status == "error", na.rm = TRUE)
+        details <- c(
+          details,
+          list(tags$small(class = "text-muted", paste0("Archivos (carpeta): ", nrow(st$manifest), " · OK: ", ok_n, " · Error: ", err_n)))
+        )
+      }
+    }
+
+    tagList(details)
+  })
+
+  output$data_overview_plot <- renderPlot({
+    df <- data_clean()
+
+    counts <- df %>%
+      count(year, area, curso, tipo, name = "n") %>%
+      arrange(year, area, curso, tipo)
+
+    validate(need(nrow(counts) > 0, "No hay datos para resumir."))
+
+    gg <- ggplot(counts, aes(x = curso, y = n, fill = tipo)) +
+      geom_col(position = position_dodge(width = 0.8), alpha = 0.85) +
+      labs(x = "Curso", y = "N estudiantes", fill = "Tipo") +
+      theme_minimal(base_size = 12) +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+    years_n <- length(unique(counts$year))
+    areas_n <- length(unique(counts$area))
+    if (years_n > 1 && areas_n > 1) {
+      gg <- gg + facet_grid(year ~ area, scales = "free_x")
+    } else if (years_n > 1) {
+      gg <- gg + facet_wrap(~year, scales = "free_x")
+    } else if (areas_n > 1) {
+      gg <- gg + facet_wrap(~area, scales = "free_x")
+    }
+
+    gg
+  })
+
+  output$data_summary_table <- renderTable({
+    df <- data_clean()
+
+    tbl <- df %>%
+      count(year, area, curso, tipo, name = "N estudiantes") %>%
+      arrange(year, area, curso, tipo)
+
+    names(tbl) <- c("Año", "Área", "Curso", "Tipo", "N estudiantes")
+    tbl
   })
 
   output$filters_ui <- renderUI({

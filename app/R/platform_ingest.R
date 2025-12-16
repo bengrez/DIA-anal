@@ -30,8 +30,29 @@ parse_dia_platform_filename <- function(path) {
   no_ext <- sub("\\.[^.]+$", "", fname)
 
   rbd <- re_capture("RBD\\s*(\\d+)", no_ext, ignore_case = TRUE)
-  area_raw <- re_capture("DIA_([^_]+)", no_ext, ignore_case = TRUE)
-  curso <- re_capture("((?:\\d+|[IVX]+)_[A-Z])", no_ext, ignore_case = FALSE)
+
+  # Extrae el bloque entre "_DIA_" y "_Resultados_de_estudiantes" para
+  # identificar correctamente Ãrea y Curso (evitando capturar "12775_D").
+  dia_block <- re_capture("_DIA_(.+?)_Resultados_de_estudiantes", no_ext, ignore_case = TRUE)
+  course_pattern <- "(?:\\d+|[IVX]+)_[A-Za-z]"
+  course_match <- if (!is.na(dia_block) && nzchar(dia_block)) {
+    m <- regexpr(course_pattern, dia_block, perl = TRUE)
+    if (m[[1]] > 0) regmatches(dia_block, m) else NA_character_
+  } else {
+    NA_character_
+  }
+
+  curso <- if (!is.na(course_match) && nzchar(course_match)) toupper(course_match) else NA_character_
+
+  area_raw <- if (!is.na(dia_block) && nzchar(dia_block) && !is.na(curso) && nzchar(curso)) {
+    idx <- regexpr(course_pattern, dia_block, perl = TRUE)[[1]]
+    area_part <- if (idx > 1) substring(dia_block, 1, idx - 1) else ""
+    area_part <- sub("_+$", "", area_part)
+    trimws(area_part)
+  } else {
+    re_capture("DIA_([^_]+)", no_ext, ignore_case = TRUE)
+  }
+
   hc <- re_capture("\\((HC-[0-9]+)\\)", no_ext, ignore_case = TRUE)
   year_chr <- re_capture("(20\\d{2})$", no_ext, ignore_case = FALSE)
 
@@ -144,4 +165,3 @@ load_dia_platform_folder <- function(folder_path, recursive = FALSE, dataset_nam
     manifest = manifest
   )
 }
-

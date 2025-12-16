@@ -181,14 +181,17 @@ canonicalize_and_clean <- function(df, source_name, meta = NULL) {
   df
 }
 
-read_dia_excel <- function(path, sheet = 1, source_name = NULL) {
+read_dia_excel <- function(path, sheet = 1, source_name = NULL, source_file = NULL) {
   if (is.null(source_name)) {
     source_name <- basename(path)
+  }
+  if (is.null(source_file)) {
+    source_file <- basename(path)
   }
 
   path <- normalizePath(path, winslash = "/", mustWork = TRUE)
   df <- readxl::read_excel(path, sheet = sheet, .name_repair = "minimal")
-  canonicalize_and_clean(df, source_name = source_name, meta = list(source_file = basename(path)))
+  canonicalize_and_clean(df, source_name = source_name, meta = list(source_file = source_file))
 }
 
 required_internal_cols <- function() {
