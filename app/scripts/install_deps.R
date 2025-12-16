@@ -7,7 +7,8 @@ required <- c(
   "zip",
   "dplyr",
   "tidyr",
-  "scales"
+  "scales",
+  "ggridges"
 )
 
 options(repos = c(CRAN = "https://cloud.r-project.org"))
