@@ -18,7 +18,8 @@ En la app puedes descargar una plantilla `.xlsx` con encabezados requeridos y un
 ## Carga masiva desde carpeta (DIA plataforma .xls)
 Si tienes muchos archivos `.xls` exportados desde la plataforma (por curso y área), usa:
 - **Origen de datos** → *Carpeta DIA plataforma (.xls)*  
-- Indica la ruta (por defecto `../data_in`) y presiona **Cargar carpeta**.
+- Usa **Seleccionar carpeta…** y luego presiona **Cargar carpeta**.
+- La selección usa el diálogo nativo del navegador (Chrome/Edge/Electron). Si no aparece opción de “carpeta”, abre la carpeta y selecciona todos los `.xls` (Ctrl+A).
 
 La app asume:
 - Una sola hoja por archivo.

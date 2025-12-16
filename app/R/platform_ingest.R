@@ -75,20 +75,20 @@ parse_dia_platform_filename <- function(path) {
   )
 }
 
-read_dia_platform_xls <- function(path, dataset_name = NULL, skip = 12) {
+read_dia_platform_xls <- function(path, dataset_name = NULL, skip = 12, original_name = NULL) {
   if (is.null(dataset_name) || !nzchar(dataset_name)) {
     dataset_name <- basename(dirname(path))
   }
 
-  meta <- parse_dia_platform_filename(path)
+  meta <- parse_dia_platform_filename(original_name %||% path)
   if (is.na(meta$curso) || !nzchar(meta$curso)) {
-    stop("No se pudo detectar el Curso desde el nombre del archivo: ", basename(path), call. = FALSE)
+    stop("No se pudo detectar el Curso desde el nombre del archivo: ", basename(original_name %||% path), call. = FALSE)
   }
   if (is.na(meta$tipo) || !nzchar(meta$tipo)) {
-    stop("No se pudo detectar el Tipo DIA desde el nombre del archivo: ", basename(path), call. = FALSE)
+    stop("No se pudo detectar el Tipo DIA desde el nombre del archivo: ", basename(original_name %||% path), call. = FALSE)
   }
   if (is.na(meta$year)) {
-    stop("No se pudo detectar el Año desde el nombre del archivo: ", basename(path), call. = FALSE)
+    stop("No se pudo detectar el Año desde el nombre del archivo: ", basename(original_name %||% path), call. = FALSE)
   }
 
   path <- normalizePath(path, winslash = "/", mustWork = TRUE)
@@ -104,7 +104,7 @@ read_dia_platform_xls <- function(path, dataset_name = NULL, skip = 12) {
       area = meta$area,
       rbd = meta$rbd,
       hc = meta$hc,
-      source_file = meta$source_file
+      source_file = basename(original_name %||% meta$source_file)
     )
   )
 }
@@ -160,6 +160,67 @@ load_dia_platform_folder <- function(folder_path, recursive = FALSE, dataset_nam
 
   list(
     folder = folder_path,
+    dataset_name = dataset_name,
+    data = df_all,
+    manifest = manifest
+  )
+}
+
+load_dia_platform_upload <- function(upload_df, dataset_name = NULL, skip = 12) {
+  if (is.null(upload_df) || nrow(upload_df) == 0) {
+    stop("No se seleccionaron archivos .xls.", call. = FALSE)
+  }
+
+  files <- as.character(upload_df$datapath)
+  names <- as.character(upload_df$name)
+
+  if (is.null(dataset_name) || !nzchar(dataset_name)) {
+    folder_hint <- dirname(names[[1]] %||% "")
+    if (nzchar(folder_hint) && !identical(folder_hint, ".")) {
+      dataset_name <- paste0("Carpeta: ", basename(folder_hint))
+    } else {
+      dataset_name <- "Carpeta seleccionada"
+    }
+  }
+
+  manifest <- lapply(seq_along(files), function(i) {
+    meta <- parse_dia_platform_filename(names[[i]])
+    data.frame(
+      file = basename(names[[i]]),
+      area = meta$area,
+      curso = meta$curso,
+      tipo = meta$tipo,
+      year = meta$year,
+      rbd = meta$rbd,
+      hc = meta$hc,
+      stringsAsFactors = FALSE
+    )
+  })
+  manifest <- do.call(rbind, manifest)
+
+  dfs <- vector("list", length(files))
+  status <- rep("ok", length(files))
+  message <- rep("", length(files))
+
+  for (i in seq_along(files)) {
+    dfs[[i]] <- tryCatch(
+      read_dia_platform_xls(files[[i]], dataset_name = dataset_name, skip = skip, original_name = names[[i]]),
+      error = function(e) {
+        status[[i]] <<- "error"
+        message[[i]] <<- e$message
+        NULL
+      }
+    )
+  }
+
+  manifest$status <- status
+  manifest$message <- message
+
+  ok <- vapply(dfs, function(x) !is.null(x) && nrow(x) > 0, logical(1))
+  df_all <- dplyr::bind_rows(dfs[ok])
+
+  list(
+    folder = NA_character_,
     dataset_name = dataset_name,
     data = df_all,
     manifest = manifest

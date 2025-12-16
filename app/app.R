@@ -64,6 +64,28 @@ ui <- tagList(
         .shiny-file-input .fileinput-filename { display: none !important; }
         "
       )
+    ),
+    tags$script(
+      HTML(
+        "
+        // Habilita selección de carpeta (Chrome/Edge/Electron) usando el file picker nativo.
+        // Shiny no expone esto de forma nativa, pero el input soporta `webkitdirectory`.
+        (function() {
+          function enableFolderPicker() {
+            var el = document.querySelector('#folder_files input[type=file]');
+            if (!el) return;
+            if (!el.hasAttribute('webkitdirectory')) {
+              el.setAttribute('webkitdirectory', '');
+              el.setAttribute('directory', '');
+              el.setAttribute('multiple', '');
+            }
+          }
+          document.addEventListener('DOMContentLoaded', enableFolderPicker);
+          document.addEventListener('shiny:connected', enableFolderPicker);
+          setInterval(enableFolderPicker, 750);
+        })();
+        "
+      )
     )
   ),
   page_sidebar(
@@ -97,9 +119,12 @@ ui <- tagList(
         conditionalPanel(
           condition = "input.data_mode == 'folder'",
           tags$small(class = "text-muted", "Lee archivos .xls exportados por la plataforma DIA (tabla desde fila 13)."),
-          actionButton("folder_choose_native", "Elegir carpeta…", class = "btn-secondary"),
-          uiOutput("folder_path_ui"),
-          checkboxInput("folder_recursive", "Incluir subcarpetas", value = FALSE),
+          fileInput("folder_files", "Seleccionar carpeta…", accept = c(".xls"), multiple = TRUE),
+          tags$small(
+            class = "text-muted",
+            "Tip: en el diálogo, selecciona la carpeta (no un archivo) para cargar todos los .xls de una vez.",
+            "Si tu navegador no lo permite, abre la carpeta y selecciona todos los .xls (Ctrl+A)."
+          ),
           actionButton("folder_load", "Cargar carpeta", class = "btn-primary"),
           uiOutput("folder_load_ui")
         ),
@@ -349,46 +374,20 @@ server <- function(input, output, session) {
   })
 
   folder_state <- reactiveVal(NULL)
-  folder_selected <- reactiveVal(NULL)
-
-  default_folder <- tryCatch(normalizePath("../data_in", winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
-  if (!is.na(default_folder) && dir.exists(default_folder)) {
-    folder_selected(default_folder)
-  }
-
-  observeEvent(input$folder_choose_native, {
-    if (!identical(.Platform$OS.type, "windows") || !exists("choose.dir", asNamespace("utils"), inherits = FALSE)) {
-      showNotification("El explorador nativo solo está disponible en Windows. Usa la carpeta por defecto o contacta soporte.", type = "warning")
-      return()
-    }
-
-    chosen <- utils::choose.dir(caption = "Selecciona la carpeta que contiene los archivos .xls del DIA")
-    if (is.na(chosen) || !nzchar(chosen)) return()
-    folder <- tryCatch(normalizePath(chosen, winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
-    if (is.na(folder) || !dir.exists(folder)) return()
-    folder_selected(folder)
-    folder_state(NULL)
-  }, ignoreInit = TRUE)
-
-  output$folder_path_ui <- renderUI({
-    folder <- folder_selected()
-    if (is.null(folder) || !nzchar(folder)) {
-      return(tags$small(class = "text-muted", "Carpeta: (no seleccionada)"))
-    }
-    tags$small(class = "text-muted", title = folder, paste0("Carpeta seleccionada: ", basename(folder)))
-  })
 
   observeEvent(input$folder_load, {
-    folder <- folder_selected()
-    validate(need(!is.null(folder) && nzchar(folder), "Selecciona una carpeta con “Elegir carpeta…”."))
+    validate(need(!is.null(input$folder_files) && nrow(input$folder_files) > 0, "Selecciona una carpeta (o archivos .xls) primero."))
     folder_state(NULL)
 
+    folder_hint <- dirname(input$folder_files$name[[1]] %||% "")
+    dataset_name <- if (nzchar(folder_hint) && !identical(folder_hint, ".")) {
+      paste0("Carpeta: ", basename(folder_hint))
+    } else {
+      "Carpeta seleccionada"
+    }
+
     res <- tryCatch(
-      load_dia_platform_folder(
-        folder_path = folder,
-        recursive = isTRUE(input$folder_recursive),
-        dataset_name = paste0("Carpeta: ", basename(folder))
-      ),
+      load_dia_platform_upload(input$folder_files, dataset_name = dataset_name, skip = 12),
       error = function(e) {
         showNotification(e$message, type = "error", duration = NULL)
         NULL
@@ -409,11 +408,10 @@ server <- function(input, output, session) {
   output$folder_load_ui <- renderUI({
     st <- folder_state()
     if (is.null(st)) {
-      folder <- folder_selected()
-      if (is.null(folder) || !nzchar(folder)) {
-        return(tags$small(class = "text-muted", "Selecciona una carpeta con “Elegir carpeta…” y luego presiona “Cargar carpeta”."))
+      if (is.null(input$folder_files) || nrow(input$folder_files) == 0) {
+        return(tags$small(class = "text-muted", "Selecciona una carpeta (o archivos .xls) y luego presiona “Cargar carpeta”."))
       }
-      return(tags$small(class = "text-muted", "Carpeta lista. Presiona “Cargar carpeta”."))
+      return(tags$small(class = "text-muted", paste0("Archivos seleccionados: ", nrow(input$folder_files), " · Presiona “Cargar carpeta”.")))
     }
 
     ok_n <- sum(st$manifest$status == "ok", na.rm = TRUE)
