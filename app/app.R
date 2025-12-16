@@ -4,7 +4,6 @@
 required_packages <- c(
   "shiny",
   "bslib",
-  "shinyFiles",
   "ggplot2",
   "readxl",
   "writexl",
@@ -98,12 +97,7 @@ ui <- tagList(
         conditionalPanel(
           condition = "input.data_mode == 'folder'",
           tags$small(class = "text-muted", "Lee archivos .xls exportados por la plataforma DIA (tabla desde fila 13)."),
-          shinyFiles::shinyDirButton(
-            "folder_choose",
-            "Elegir carpeta…",
-            title = "Selecciona la carpeta que contiene los archivos .xls del DIA",
-            multiple = FALSE
-          ),
+          actionButton("folder_choose_native", "Elegir carpeta…", class = "btn-secondary"),
           uiOutput("folder_path_ui"),
           checkboxInput("folder_recursive", "Incluir subcarpetas", value = FALSE),
           actionButton("folder_load", "Cargar carpeta", class = "btn-primary"),
@@ -362,13 +356,15 @@ server <- function(input, output, session) {
     folder_selected(default_folder)
   }
 
-  volumes <- shinyFiles::getVolumes()
-  shinyFiles::shinyDirChoose(input, "folder_choose", roots = volumes, session = session)
+  observeEvent(input$folder_choose_native, {
+    if (!identical(.Platform$OS.type, "windows") || !exists("choose.dir", asNamespace("utils"), inherits = FALSE)) {
+      showNotification("El explorador nativo solo está disponible en Windows. Usa la carpeta por defecto o contacta soporte.", type = "warning")
+      return()
+    }
 
-  observeEvent(input$folder_choose, {
-    chosen <- shinyFiles::parseDirPath(volumes, input$folder_choose)
-    if (length(chosen) == 0) return()
-    folder <- tryCatch(normalizePath(chosen[[1]], winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
+    chosen <- utils::choose.dir(caption = "Selecciona la carpeta que contiene los archivos .xls del DIA")
+    if (is.na(chosen) || !nzchar(chosen)) return()
+    folder <- tryCatch(normalizePath(chosen, winslash = "/", mustWork = FALSE), error = function(e) NA_character_)
     if (is.na(folder) || !dir.exists(folder)) return()
     folder_selected(folder)
     folder_state(NULL)

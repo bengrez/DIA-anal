@@ -1,7 +1,6 @@
 required <- c(
   "shiny",
   "bslib",
-  "shinyFiles",
   "ggplot2",
   "readxl",
   "writexl",
