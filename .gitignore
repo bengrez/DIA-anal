@@ -25,3 +25,6 @@ app/nativefier-app/
 app/*.iss
 app/output/
 app/Output/
+
+# Local data (may contain sensitive student info)
+data_in/
