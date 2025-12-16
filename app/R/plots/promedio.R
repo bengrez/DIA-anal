@@ -5,11 +5,11 @@ plot_promedio <- function(df, ejes, facet_row, facet_col, palette_fill, alpha_ba
   }
 
   df_long <- df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor")
 
   df_sum <- df_long %>%
-    group_by(.data$year, .data$curso, .data$tipo, .data$eje) %>%
+    group_by(.data$year, .data$area, .data$curso, .data$tipo, .data$eje) %>%
     summarise(valor = mean(.data$valor, na.rm = TRUE), .groups = "drop")
 
   if (is.factor(df_sum$tipo)) {

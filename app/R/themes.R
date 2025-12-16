@@ -93,10 +93,12 @@ default_title <- function(plot_type, eje = NULL, tipo_a = NULL, tipo_b = NULL) {
   "Gráfico"
 }
 
-default_subtitle <- function(cursos, tipos) {
+default_subtitle <- function(cursos, tipos, areas = NULL) {
   cursos <- unique(as.character(cursos))
   tipos <- unique(as.character(tipos))
+  areas <- unique(as.character(areas %||% character()))
   parts <- c()
+  if (length(areas) > 0) parts <- c(parts, paste("Áreas:", paste(areas, collapse = ", ")))
   if (length(cursos) > 0) parts <- c(parts, paste("Cursos:", paste(cursos, collapse = ", ")))
   if (length(tipos) > 0) parts <- c(parts, paste("Tipos:", paste(tipos, collapse = ", ")))
   paste(parts, collapse = " — ")
@@ -136,7 +138,7 @@ make_export_filename <- function(plot_type, cursos, eje, tipo_a = NULL, tipo_b =
   paste0("DIA_", plot_key, "_", curso_key, "_", eje_key, extra, ".png")
 }
 
-make_export_filename_v2 <- function(plot_type, cursos, years = NULL, eje = NULL, tipo_a = NULL, tipo_b = NULL) {
+make_export_filename_v2 <- function(plot_type, cursos, years = NULL, areas = NULL, eje = NULL, tipo_a = NULL, tipo_b = NULL) {
   plot_key <- sanitize_filename_part(plot_type)
 
   cursos <- unique(as.character(cursos %||% character()))
@@ -144,6 +146,10 @@ make_export_filename_v2 <- function(plot_type, cursos, years = NULL, eje = NULL,
 
   years <- unique(as.character(years %||% character()))
   year_key <- if (length(years) == 1) sanitize_filename_part(years[[1]]) else "VariosAnios"
+
+  areas <- unique(as.character(areas %||% character()))
+  area_key <- if (length(areas) == 1) sanitize_filename_part(areas[[1]]) else "VariasAreas"
+  if (!nzchar(area_key)) area_key <- "NA"
 
   eje_key <- sanitize_filename_part(eje %||% "")
   if (identical(plot_type, "nivel_logro")) {
@@ -156,7 +162,7 @@ make_export_filename_v2 <- function(plot_type, cursos, years = NULL, eje = NULL,
     extra <- paste0("_", sanitize_filename_part(tipo_a), "_a_", sanitize_filename_part(tipo_b))
   }
 
-  paste0("DIA_", plot_key, "_", curso_key, "_", year_key, "_", eje_key, extra, ".png")
+  paste0("DIA_", plot_key, "_", area_key, "_", curso_key, "_", year_key, "_", eje_key, extra, ".png")
 }
 
 save_png_ggsave <- function(plot, path, width_px, height_px, style_preset) {
@@ -182,6 +188,7 @@ facet_key_to_col <- function(key) {
     curso = "curso",
     tipo = "tipo",
     year = "year",
+    area = "area",
     eje = "eje",
     NULL
   )

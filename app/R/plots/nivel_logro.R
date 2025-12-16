@@ -2,7 +2,7 @@ plot_nivel_logro <- function(df, facet_row, facet_col, palette_fill, alpha_bars,
   df_count <- df %>%
     mutate(nivel_logro_chr = as.character(.data$nivel_logro)) %>%
     filter(!is.na(.data$nivel_logro_chr), nzchar(.data$nivel_logro_chr)) %>%
-    count(.data$year, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
+    count(.data$year, .data$area, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
 
   nivel_chr <- as.character(df$nivel_logro)
   base_levels <- sort(unique(nivel_chr[!is.na(nivel_chr) & nzchar(nivel_chr)]))
@@ -24,6 +24,7 @@ plot_nivel_logro <- function(df, facet_row, facet_col, palette_fill, alpha_bars,
   x_parts <- c("curso")
   if (!("tipo" %in% facet_cols)) x_parts <- c(x_parts, "tipo")
   if (!("year" %in% facet_cols)) x_parts <- c(x_parts, "year")
+  if (!("area" %in% facet_cols) && length(unique(df_count$area)) > 1) x_parts <- c(x_parts, "area")
 
   if (length(x_parts) == 1) {
     df_count <- df_count %>% mutate(x_label = .data$curso)

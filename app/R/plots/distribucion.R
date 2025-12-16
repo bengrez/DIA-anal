@@ -5,7 +5,7 @@ plot_distribucion <- function(df, ejes, kind, facet_row, facet_col, palette_fill
   }
 
   df_plot <- df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor")
 
   if (is.factor(df_plot$tipo)) {

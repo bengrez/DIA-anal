@@ -40,6 +40,7 @@ assistant_settings_label <- function(settings) {
   if (!identical(facet_row, "off") || !identical(facet_col, "off")) {
     facet_row_lbl <- switch(
       facet_row,
+      area = "Área",
       curso = "Curso",
       tipo = "Tipo",
       year = "Año",
@@ -48,6 +49,7 @@ assistant_settings_label <- function(settings) {
     )
     facet_col_lbl <- switch(
       facet_col,
+      area = "Área",
       curso = "Curso",
       tipo = "Tipo",
       year = "Año",

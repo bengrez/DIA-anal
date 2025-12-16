@@ -7,6 +7,7 @@ La app principal vive en `app/` y está pensada para uso local (los datos no se 
 
 - Ejecutar en Windows: doble click en `run_app.bat`
 - Documentación: `app/README.md`
+- Soporta carga masiva desde carpeta de `.xls` exportados por la plataforma DIA (por curso/área).
 
 ## Datos de ejemplo
 En la raíz del repo están:

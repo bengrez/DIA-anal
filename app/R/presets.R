@@ -4,11 +4,13 @@ preset_capture <- function(input) {
     plot_type = input$plot_type %||% "promedio",
     facet_row = input$facet_row %||% "off",
     facet_col = input$facet_col %||% "off",
+    area = input$area %||% NULL,
     curso = input$curso %||% NULL,
     year = input$year %||% NULL,
     tipo = input$tipo %||% NULL,
     fuente = input$fuente %||% NULL,
     eje = input$eje %||% NULL,
+    axis_pool = input$axis_pool %||% NULL,
     tipo_a = input$tipo_a %||% NULL,
     tipo_b = input$tipo_b %||% NULL,
     dist_kind = input$dist_kind %||% NULL,
@@ -39,6 +41,7 @@ preset_capture <- function(input) {
 
 preset_defaults <- function(ch) {
   ch <- ch %||% list()
+  areas <- ch$areas %||% character()
   tipos <- ch$tipos %||% character()
   niveles <- ch$niveles %||% character()
   cursos <- ch$cursos %||% character()
@@ -51,11 +54,13 @@ preset_defaults <- function(ch) {
     plot_type = "promedio",
     facet_row = "off",
     facet_col = "off",
+    area = areas,
     curso = cursos,
     year = years,
     tipo = tipos,
     fuente = fuentes,
     eje = if (length(ejes) > 0) ejes[[1]] else NULL,
+    axis_pool = "common",
     tipo_a = if (length(tipos) > 0) tipos[[1]] else NULL,
     tipo_b = if (length(tipos) > 1) tipos[[2]] else if (length(tipos) > 0) tipos[[1]] else NULL,
     dist_kind = "box",
@@ -110,11 +115,13 @@ preset_is_applied <- function(input, preset) {
   if (!is.null(input$anon_seed) && !eq(input$anon_seed, preset$anon_seed)) return(FALSE)
 
   if (!is.null(input$fuente) && !is.null(preset$fuente) && !eq(input$fuente, preset$fuente)) return(FALSE)
+  if (!is.null(input$area) && !is.null(preset$area) && !eq(input$area, preset$area)) return(FALSE)
   if (!is.null(input$curso) && !is.null(preset$curso) && !eq(input$curso, preset$curso)) return(FALSE)
   if (!is.null(input$year) && !is.null(preset$year) && !eq(input$year, preset$year)) return(FALSE)
 
   if (!is.null(input$tipo) && !is.null(preset$tipo) && !eq(input$tipo, preset$tipo)) return(FALSE)
   if (!is.null(input$eje) && !is.null(preset$eje) && !eq(input$eje, preset$eje)) return(FALSE)
+  if (!is.null(input$axis_pool) && !is.null(preset$axis_pool) && !eq(input$axis_pool, preset$axis_pool)) return(FALSE)
 
   if (!is.null(input$tipo_order) && !is.null(preset$tipo_order) && !eq(input$tipo_order, preset$tipo_order)) return(FALSE)
   if (!is.null(input$nivel_order) && !is.null(preset$nivel_order) && !eq(input$nivel_order, preset$nivel_order)) return(FALSE)
@@ -155,6 +162,9 @@ preset_apply_step <- function(session, input, preset) {
   if (!is.null(preset$fuente) && !is.null(input$fuente) && !identical(input$fuente, preset$fuente)) {
     updateSelectInput(session, "fuente", selected = preset$fuente)
   }
+  if (!is.null(preset$area) && !is.null(input$area) && !identical(input$area, preset$area)) {
+    updateSelectInput(session, "area", selected = preset$area)
+  }
   if (!is.null(preset$curso) && !is.null(input$curso) && !identical(input$curso, preset$curso)) {
     updateSelectInput(session, "curso", selected = preset$curso)
   }
@@ -166,6 +176,9 @@ preset_apply_step <- function(session, input, preset) {
   }
   if (!is.null(preset$eje) && !is.null(input$eje) && !identical(input$eje, preset$eje)) {
     updateSelectInput(session, "eje", selected = preset$eje)
+  }
+  if (!is.null(preset$axis_pool) && !is.null(input$axis_pool) && !identical(input$axis_pool, preset$axis_pool)) {
+    updateRadioButtons(session, "axis_pool", selected = preset$axis_pool)
   }
 
   # Orden de factores (selectize)

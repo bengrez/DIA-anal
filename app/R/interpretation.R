@@ -4,6 +4,7 @@ interpretation_points <- function(
     cursos = NULL,
     tipos = NULL,
     years = NULL,
+    areas = NULL,
     facet_row = "off",
     facet_col = "off",
     dist_kind = NULL,
@@ -21,9 +22,11 @@ interpretation_points <- function(
   cursos <- unique(as.character(cursos %||% character()))
   tipos <- unique(as.character(tipos %||% character()))
   years <- unique(as.character(years %||% character()))
+  areas <- unique(as.character(areas %||% character()))
 
   scope <- c()
   if (length(years) > 0) scope <- c(scope, paste0("Año(s): ", paste(years, collapse = ", ")))
+  if (length(areas) > 0) scope <- c(scope, paste0("Área(s): ", paste(areas, collapse = ", ")))
   if (length(cursos) > 0) scope <- c(scope, paste0("Curso(s): ", paste(cursos, collapse = ", ")))
   if (length(tipos) > 0) scope <- c(scope, paste0("Tipo(s): ", paste(tipos, collapse = ", ")))
   if (length(ejes) > 0) scope <- c(scope, paste0("Eje(s): ", paste(ejes, collapse = ", ")))

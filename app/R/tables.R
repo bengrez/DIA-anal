@@ -5,15 +5,15 @@ table_promedio <- function(df, ejes) {
   }
 
   df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data$curso, .data$tipo, .data$eje) %>%
+    group_by(.data$year, .data$area, .data$curso, .data$tipo, .data$eje) %>%
     summarise(
       n = sum(!is.na(.data$valor)),
       promedio = mean(.data$valor, na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    arrange(.data$year, .data$curso, .data$eje, .data$tipo)
+    arrange(.data$year, .data$area, .data$curso, .data$eje, .data$tipo)
 }
 
 table_distribucion_stats <- function(df, ejes) {
@@ -23,9 +23,9 @@ table_distribucion_stats <- function(df, ejes) {
   }
 
   df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data$curso, .data$tipo, .data$eje) %>%
+    group_by(.data$year, .data$area, .data$curso, .data$tipo, .data$eje) %>%
     summarise(
       n = sum(!is.na(.data$valor)),
       promedio = mean(.data$valor, na.rm = TRUE),
@@ -35,25 +35,25 @@ table_distribucion_stats <- function(df, ejes) {
       p75 = stats::quantile(.data$valor, probs = 0.75, na.rm = TRUE, names = FALSE),
       .groups = "drop"
     ) %>%
-    arrange(.data$year, .data$curso, .data$eje, .data$tipo)
+    arrange(.data$year, .data$area, .data$curso, .data$eje, .data$tipo)
 }
 
 table_nivel_logro <- function(df) {
   df_count <- df %>%
     mutate(nivel_chr = as.character(.data$nivel_logro)) %>%
     filter(!is.na(.data$nivel_chr), nzchar(.data$nivel_chr)) %>%
-    count(.data$year, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
+    count(.data$year, .data$area, .data$curso, .data$tipo, .data$nivel_logro, name = "n")
 
   df_count %>%
-    group_by(.data$year, .data$curso, .data$tipo) %>%
+    group_by(.data$year, .data$area, .data$curso, .data$tipo) %>%
     mutate(proporcion = .data$n / sum(.data$n)) %>%
     ungroup() %>%
-    arrange(.data$year, .data$curso, .data$tipo, .data$nivel_logro)
+    arrange(.data$year, .data$area, .data$curso, .data$tipo, .data$nivel_logro)
 }
 
 table_crecimiento <- function(df, eje, tipo_a, tipo_b) {
   calc_delta_por_estudiante(df, eje = eje, tipo_a = tipo_a, tipo_b = tipo_b) %>%
-    arrange(.data$year, .data$curso, desc(.data$delta))
+    arrange(.data$year, .data$area, .data$curso, desc(.data$delta))
 }
 
 table_heatmap <- function(df, ejes, axis_dim = "curso") {
@@ -65,11 +65,11 @@ table_heatmap <- function(df, ejes, axis_dim = "curso") {
   axis_dim <- match.arg(axis_dim, c("curso", "tipo"))
 
   df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data[[axis_dim]], .data$eje) %>%
+    group_by(.data$year, .data$area, .data[[axis_dim]], .data$eje) %>%
     summarise(n = sum(!is.na(.data$valor)), promedio = mean(.data$valor, na.rm = TRUE), .groups = "drop") %>%
-    arrange(.data$year, .data$eje, .data[[axis_dim]])
+    arrange(.data$year, .data$area, .data$eje, .data[[axis_dim]])
 }
 
 table_violin <- function(df, ejes, group_var = "curso") {
@@ -81,9 +81,9 @@ table_violin <- function(df, ejes, group_var = "curso") {
   group_var <- match.arg(group_var, c("curso", "tipo"))
 
   df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data[[group_var]], .data$eje) %>%
+    group_by(.data$year, .data$area, .data[[group_var]], .data$eje) %>%
     summarise(
       n = sum(!is.na(.data$valor)),
       promedio = mean(.data$valor, na.rm = TRUE),
@@ -93,7 +93,7 @@ table_violin <- function(df, ejes, group_var = "curso") {
       p75 = stats::quantile(.data$valor, probs = 0.75, na.rm = TRUE, names = FALSE),
       .groups = "drop"
     ) %>%
-    arrange(.data$year, .data$eje, .data[[group_var]])
+    arrange(.data$year, .data$area, .data$eje, .data[[group_var]])
 }
 
 table_tendencia <- function(df, ejes, group_var = "curso") {
@@ -105,16 +105,16 @@ table_tendencia <- function(df, ejes, group_var = "curso") {
   group_var <- match.arg(group_var, c("curso", "tipo"))
 
   df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data[[group_var]], .data$eje) %>%
+    group_by(.data$year, .data$area, .data[[group_var]], .data$eje) %>%
     summarise(
       n = sum(!is.na(.data$valor)),
       promedio = mean(.data$valor, na.rm = TRUE),
       sd = stats::sd(.data$valor, na.rm = TRUE),
       .groups = "drop"
     ) %>%
-    arrange(.data$year, .data$eje, .data[[group_var]])
+    arrange(.data$year, .data$area, .data$eje, .data[[group_var]])
 }
 
 current_table <- function(
@@ -154,4 +154,3 @@ current_table <- function(
   }
   data.frame()
 }
-

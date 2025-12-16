@@ -31,6 +31,7 @@ library(dplyr)
 library(tidyr)
 
 source(file.path("R", "ingest.R"))
+source(file.path("R", "platform_ingest.R"))
 source(file.path("R", "assistant.R"))
 source(file.path("R", "template.R"))
 source(file.path("R", "interpretation.R"))
@@ -60,12 +61,34 @@ ui <- page_sidebar(
       id = "sidebar_acc",
       open = "load",
       accordion_panel(
-        title = "1) Carga de datos (Excel .xlsx)",
+        title = "1) Carga de datos",
         value = "load",
-        fileInput("file1", "Archivo 1 (obligatorio)", accept = ".xlsx"),
-        uiOutput("sheet1_ui"),
-        fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
-        uiOutput("sheet2_ui"),
+        radioButtons(
+          "data_mode",
+          "Origen de datos",
+          choices = c(
+            "Excel (.xlsx) — formato de la app" = "xlsx",
+            "Carpeta DIA plataforma (.xls) — muchos cursos/áreas" = "folder"
+          ),
+          selected = "xlsx"
+        ),
+        conditionalPanel(
+          condition = "input.data_mode == 'xlsx'",
+          fileInput("file1", "Archivo 1 (obligatorio)", accept = ".xlsx"),
+          uiOutput("sheet1_ui"),
+          fileInput("file2", "Archivo 2 (opcional)", accept = ".xlsx"),
+          uiOutput("sheet2_ui"),
+          downloadButton("download_template", "Descargar plantilla Excel")
+        ),
+        conditionalPanel(
+          condition = "input.data_mode == 'folder'",
+          tags$small(class = "text-muted", "Lee archivos .xls exportados por la plataforma DIA (tabla desde fila 13)."),
+          textInput("folder_path", "Carpeta con archivos .xls", value = "../data_in"),
+          checkboxInput("folder_recursive", "Incluir subcarpetas", value = FALSE),
+          actionButton("folder_load", "Cargar carpeta", class = "btn-primary"),
+          uiOutput("folder_load_ui"),
+          tableOutput("folder_manifest")
+        ),
         checkboxInput("anon", "Modo anónimo (no exportar nombres)", value = TRUE),
         conditionalPanel(
           condition = "input.anon == true",
@@ -77,7 +100,6 @@ ui <- page_sidebar(
           ),
           numericInput("anon_seed", "Semilla (IDs aleatorios)", value = 1234, min = 1, max = 999999, step = 1)
         ),
-        downloadButton("download_template", "Descargar plantilla Excel"),
         hr(),
         uiOutput("summary_ui")
       ),
@@ -107,6 +129,7 @@ ui <- page_sidebar(
               "Facets (fila)",
               choices = c(
                 "OFF" = "off",
+                "Área" = "area",
                 "Curso" = "curso",
                 "Tipo" = "tipo",
                 "Año" = "year",
@@ -122,6 +145,7 @@ ui <- page_sidebar(
               "Facets (columna)",
               choices = c(
                 "OFF" = "off",
+                "Área" = "area",
                 "Curso" = "curso",
                 "Tipo" = "tipo",
                 "Año" = "year",
@@ -265,12 +289,69 @@ server <- function(input, output, session) {
     }
   }, ignoreInit = TRUE)
 
+  observeEvent(list(input$area, input$facet_row, input$facet_col), {
+    req(input$area, input$facet_row, input$facet_col)
+    if (length(input$area) > 1 && identical(input$facet_row, "off") && identical(input$facet_col, "off")) {
+      updateSelectInput(session, "facet_row", selected = "area")
+      showNotification("Seleccionaste múltiples áreas: se activó Facets (fila) = Área.", type = "message")
+    }
+  }, ignoreInit = TRUE)
+
   observeEvent(input$go_grafico, {
     updateTabsetPanel(session, "main_tabs", selected = "grafico")
   })
 
   observeEvent(input$go_asistente, {
     updateTabsetPanel(session, "main_tabs", selected = "asistente")
+  })
+
+  folder_state <- reactiveVal(NULL)
+
+  observeEvent(input$folder_load, {
+    req(input$folder_path)
+    folder_state(NULL)
+
+    res <- tryCatch(
+      load_dia_platform_folder(
+        folder_path = input$folder_path,
+        recursive = isTRUE(input$folder_recursive),
+        dataset_name = paste0("Carpeta: ", basename(input$folder_path))
+      ),
+      error = function(e) {
+        showNotification(e$message, type = "error", duration = NULL)
+        NULL
+      }
+    )
+
+    if (is.null(res)) return()
+
+    folder_state(res)
+    ok_n <- sum(res$manifest$status == "ok", na.rm = TRUE)
+    err_n <- sum(res$manifest$status == "error", na.rm = TRUE)
+    showNotification(
+      paste0("Carpeta cargada: ", ok_n, " archivo(s) OK", if (err_n > 0) paste0(" · ", err_n, " con error") else ""),
+      type = if (err_n > 0) "warning" else "message"
+    )
+  })
+
+  output$folder_load_ui <- renderUI({
+    st <- folder_state()
+    if (is.null(st)) {
+      return(tags$small(class = "text-muted", "Selecciona una carpeta y presiona “Cargar carpeta”."))
+    }
+
+    ok_n <- sum(st$manifest$status == "ok", na.rm = TRUE)
+    err_n <- sum(st$manifest$status == "error", na.rm = TRUE)
+    tagList(
+      tags$small(class = "text-muted", paste0("Archivos: ", nrow(st$manifest), " · OK: ", ok_n, " · Error: ", err_n)),
+      if (err_n > 0) tags$small(class = "text-danger", "Revisa la columna “message” para ver el motivo.")
+    )
+  })
+
+  output$folder_manifest <- renderTable({
+    st <- folder_state()
+    if (is.null(st)) return(NULL)
+    utils::head(st$manifest, 60)
   })
 
   output$sheet1_ui <- renderUI({
@@ -437,18 +518,20 @@ server <- function(input, output, session) {
       if (x %in% allowed) x else allowed[[1]]
     }
 
-    facet_allowed <- c("off", "curso", "tipo", "year", "eje")
+    facet_allowed <- c("off", "area", "curso", "tipo", "year", "eje")
     preset$facet_row <- sanitize_single(preset$facet_row %||% preset$facet %||% "off", facet_allowed)
     preset$facet_col <- sanitize_single(preset$facet_col %||% "off", facet_allowed)
     if (!identical(preset$facet_row, "off") && identical(preset$facet_row, preset$facet_col)) {
       preset$facet_col <- "off"
     }
 
+    preset$area <- sanitize_multi(preset$area, ch$areas)
     preset$curso <- sanitize_multi(preset$curso, ch$cursos)
     preset$year <- sanitize_multi(preset$year, ch$years)
     preset$tipo <- sanitize_multi(preset$tipo, ch$tipos)
     preset$fuente <- sanitize_multi(preset$fuente, ch$fuentes)
     preset$eje <- sanitize_multi(preset$eje, ch$ejes)
+    preset$axis_pool <- sanitize_single(preset$axis_pool %||% "common", c("common", "all"))
     preset$tipo_a <- sanitize_single(preset$tipo_a, ch$tipos)
     preset$tipo_b <- sanitize_single(preset$tipo_b, ch$tipos)
     preset$tipo_order <- sanitize_multi(preset$tipo_order, ch$tipos)
@@ -501,6 +584,7 @@ server <- function(input, output, session) {
       cursos = input$curso %||% NULL,
       tipos = input$tipo %||% NULL,
       years = input$year %||% NULL,
+      areas = input$area %||% NULL,
       facet_row = input$facet_row %||% "off",
       facet_col = input$facet_col %||% "off",
       dist_kind = input$dist_kind %||% NULL,
@@ -615,6 +699,15 @@ server <- function(input, output, session) {
   })
 
   data_raw <- reactive({
+    mode <- input$data_mode %||% "xlsx"
+
+    if (identical(mode, "folder")) {
+      st <- folder_state()
+      validate(need(!is.null(st), "Selecciona una carpeta y presiona “Cargar carpeta”."))
+      validate(need(nrow(st$data) > 0, "No se pudieron cargar filas desde la carpeta (revisa errores)."))
+      return(st$data)
+    }
+
     req(input$file1)
     df1 <- tryCatch(
       read_dia_excel(
@@ -666,12 +759,14 @@ server <- function(input, output, session) {
   choices <- reactive({
     df <- data_clean()
     list(
+      areas = sort(unique(df$area)),
       cursos = sort(unique(df$curso)),
       tipos = sort(unique(df$tipo)),
       years = sort(unique(df$year)),
       niveles = sort(unique(df$nivel_logro[!is.na(df$nivel_logro) & nzchar(df$nivel_logro)])),
       ejes = detect_axes(df),
-      fuentes = sort(unique(df$fuente))
+      fuentes = sort(unique(df$fuente)),
+      rbds = sort(unique(df$rbd[!is.na(df$rbd) & nzchar(df$rbd)]))
     )
   })
 
@@ -728,6 +823,11 @@ server <- function(input, output, session) {
           theme = "info"
         ),
         value_box(
+          title = "Áreas",
+          value = length(ch$areas),
+          theme = "info"
+        ),
+        value_box(
           title = "Tipos",
           value = length(ch$tipos),
           theme = "info"
@@ -737,7 +837,7 @@ server <- function(input, output, session) {
           value = length(ch$ejes),
           theme = "secondary"
         ),
-        col_widths = c(4, 4, 4)
+        col_widths = c(3, 3, 3, 3)
       ),
       if (length(ch$ejes) > 0) {
         tags$small(
@@ -750,21 +850,39 @@ server <- function(input, output, session) {
 
   output$filters_ui <- renderUI({
     ch <- choices()
-    df <- data_clean()
+    df_all <- data_clean()
 
     ui_list <- list()
 
+    # Helpers para preservar selecciones cuando cambian choices
+    preserve_multi <- function(current, allowed, default = allowed) {
+      current <- unique(as.character(current %||% character()))
+      allowed <- unique(as.character(allowed %||% character()))
+      if (length(allowed) == 0) return(character())
+      if (length(current) == 0) return(default)
+      keep <- intersect(current, allowed)
+      if (length(keep) == 0) default else keep
+    }
+
+    # Área (siempre)
+    area_selected <- preserve_multi(isolate(input$area), ch$areas, default = ch$areas)
+    ui_list <- c(
+      ui_list,
+      list(selectInput("area", "Área(s)", choices = ch$areas, selected = area_selected, multiple = TRUE))
+    )
+
     if (length(ch$fuentes) > 1) {
+      fuente_selected <- preserve_multi(isolate(input$fuente), ch$fuentes, default = ch$fuentes)
       ui_list <- c(
         ui_list,
-        list(
-          selectInput("fuente", "Archivo(s)", choices = ch$fuentes, selected = ch$fuentes, multiple = TRUE)
-        )
+        list(selectInput("fuente", "Archivo(s)", choices = ch$fuentes, selected = fuente_selected, multiple = TRUE))
       )
     }
 
-    ui_list <- c(ui_list, list(selectInput("curso", "Curso(s)", choices = ch$cursos, selected = ch$cursos, multiple = TRUE)))
+    curso_selected <- preserve_multi(isolate(input$curso), ch$cursos, default = ch$cursos)
+    ui_list <- c(ui_list, list(selectInput("curso", "Curso(s)", choices = ch$cursos, selected = curso_selected, multiple = TRUE)))
 
+    year_selected <- preserve_multi(isolate(input$year), ch$years, default = ch$years)
     ui_list <- c(
       ui_list,
       list(
@@ -772,26 +890,54 @@ server <- function(input, output, session) {
           "year",
           "Año(s)",
           choices = ch$years,
-          selected = ch$years,
+          selected = year_selected,
           multiple = TRUE
         )
       )
     )
 
     if (!identical(input$plot_type, "crecimiento")) {
+      tipo_selected <- preserve_multi(isolate(input$tipo), ch$tipos, default = ch$tipos)
       ui_list <- c(
         ui_list,
-        list(selectInput("tipo", "Tipo(s)", choices = ch$tipos, selected = ch$tipos, multiple = TRUE))
+        list(selectInput("tipo", "Tipo(s)", choices = ch$tipos, selected = tipo_selected, multiple = TRUE))
       )
     }
 
-    if (input$plot_type %in% c("promedio", "distribucion", "crecimiento", "heatmap", "violin", "tendencia")) {
-      ui_list <- c(
-        ui_list,
-        list(
-          selectInput("eje", "Eje / ámbito", choices = ch$ejes, selected = ch$ejes[[1]], multiple = TRUE)
+    needs_axes <- input$plot_type %in% c("promedio", "distribucion", "crecimiento", "heatmap", "violin", "tendencia")
+    if (isTRUE(needs_axes)) {
+      df_area <- df_all %>% filter(.data$area %in% area_selected)
+      axes_all <- detect_axes(df_area)
+      axes_all <- axes_all[vapply(axes_all, function(ax) any(!is.na(df_area[[ax]])), logical(1))]
+
+      pool_mode <- input$axis_pool %||% "common"
+      axes_use <- axes_all
+      if (identical(pool_mode, "common") && length(area_selected) > 1) {
+        per_area <- lapply(area_selected, function(a) {
+          df_a <- df_area %>% filter(.data$area == a)
+          axes_all[vapply(axes_all, function(ax) any(!is.na(df_a[[ax]])), logical(1))]
+        })
+        axes_use <- Reduce(intersect, per_area)
+      }
+      if (length(axes_use) == 0) axes_use <- axes_all
+
+      if (length(area_selected) > 1) {
+        ui_list <- c(
+          ui_list,
+          list(
+            radioButtons(
+              "axis_pool",
+              "Ejes disponibles",
+              choices = c("Comunes entre áreas" = "common", "Todos (unión)" = "all"),
+              selected = pool_mode,
+              inline = TRUE
+            )
+          )
         )
-      )
+      }
+
+      eje_selected <- preserve_multi(isolate(input$eje), axes_use, default = axes_use[[1]])
+      ui_list <- c(ui_list, list(selectInput("eje", "Eje / ámbito", choices = axes_use, selected = eje_selected, multiple = TRUE)))
     }
 
     if (identical(input$plot_type, "distribucion")) {
@@ -884,6 +1030,9 @@ server <- function(input, output, session) {
 
   filtered_data <- reactive({
     df <- data_clean()
+    if (!is.null(input$area)) {
+      df <- df %>% filter(.data$area %in% input$area)
+    }
     if (!is.null(input$fuente)) {
       df <- df %>% filter(.data$fuente %in% input$fuente)
     }
@@ -1188,6 +1337,7 @@ server <- function(input, output, session) {
         cursos = input$curso %||% NULL,
         tipos = input$tipo %||% NULL,
         years = input$year %||% NULL,
+        areas = input$area %||% NULL,
         facet_row = input$facet_row %||% "off",
         facet_col = input$facet_col %||% "off",
         dist_kind = input$dist_kind %||% NULL,
@@ -1348,6 +1498,7 @@ server <- function(input, output, session) {
               plot_type = plot_type,
               cursos = cg,
               years = yg,
+              areas = unique(df_job$area),
               eje = eje_label,
               tipo_a = input$tipo_a %||% NULL,
               tipo_b = input$tipo_b %||% NULL
@@ -1390,6 +1541,22 @@ server <- function(input, output, session) {
       need(nrow(df) > 0, "No hay filas después de aplicar filtros.")
     )
 
+    facet_row_eff <- input$facet_row %||% "off"
+    facet_col_eff <- input$facet_col %||% "off"
+    n_areas <- length(unique(df$area))
+    if (n_areas > 1) {
+      if (identical(facet_row_eff, "off") && identical(facet_col_eff, "off")) {
+        facet_row_eff <- "area"
+      } else if (!("area" %in% c(facet_row_eff, facet_col_eff))) {
+        validate(
+          need(
+            FALSE,
+            "Seleccionaste múltiples áreas. Para comparar, usa facets por Área (fila o columna) o filtra una sola Área."
+          )
+        )
+      }
+    }
+
     ui_theme <- get_ui_theme(input$style_preset)
     if (is.function(session$setCurrentTheme)) {
       session$setCurrentTheme(ui_theme)
@@ -1400,7 +1567,7 @@ server <- function(input, output, session) {
       eje_first <- eje_first[[1]]
     }
     title_default <- default_title(input$plot_type, eje_first, input$tipo_a %||% NULL, input$tipo_b %||% NULL)
-    subtitle_default <- default_subtitle(input$curso %||% character(), input$tipo %||% character())
+    subtitle_default <- default_subtitle(input$curso %||% character(), input$tipo %||% character(), input$area %||% character())
 
     labels <- list(
       title = nz_or_default(input$title, title_default),
@@ -1415,8 +1582,8 @@ server <- function(input, output, session) {
       p <- plot_promedio(
         df = df,
         ejes = input$eje,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
@@ -1425,8 +1592,8 @@ server <- function(input, output, session) {
       p <- plot_heatmap(
         df = df,
         ejes = input$eje,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         axis_dim = input$heatmap_dim %||% "curso",
         palette_fill = input$palette_fill,
         plot_theme = plot_theme
@@ -1435,8 +1602,8 @@ server <- function(input, output, session) {
       p <- plot_violin(
         df = df,
         ejes = input$eje,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         group_var = input$violin_group %||% "curso",
         kind = input$violin_kind %||% "violin",
         palette_fill = input$palette_fill,
@@ -1448,8 +1615,8 @@ server <- function(input, output, session) {
       p <- plot_tendencia(
         df = df,
         ejes = input$eje,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         group_var = input$trend_group %||% "curso",
         palette_color = input$palette_color,
         alpha_lines = input$alpha_lines %||% 0.9,
@@ -1460,8 +1627,8 @@ server <- function(input, output, session) {
         df = df,
         ejes = input$eje,
         kind = input$dist_kind %||% "box",
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         palette_fill = input$palette_fill,
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,
@@ -1471,8 +1638,8 @@ server <- function(input, output, session) {
     } else if (identical(input$plot_type, "nivel_logro")) {
       p <- plot_nivel_logro(
         df = df,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         palette_fill = input$palette_fill,
         alpha_bars = input$alpha_bars %||% 0.85,
         plot_theme = plot_theme
@@ -1487,8 +1654,8 @@ server <- function(input, output, session) {
         kind = input$growth_kind %||% "delta",
         rank_mode = input$rank_mode %||% "all",
         rank_n = input$rank_n %||% 10,
-        facet_row = input$facet_row %||% "off",
-        facet_col = input$facet_col %||% "off",
+        facet_row = facet_row_eff,
+        facet_col = facet_col_eff,
         palette_fill = input$palette_fill,
         palette_color = input$palette_color,
         alpha_bars = input$alpha_bars %||% 0.85,
@@ -1511,12 +1678,31 @@ server <- function(input, output, session) {
   output$download_png <- downloadHandler(
     filename = function() {
       df <- filtered_data()
-      eje <- input$eje %||% NULL
+      plot_type <- input$plot_type %||% "promedio"
       cursos <- input$curso %||% character()
-      make_export_filename(
-        plot_type = input$plot_type,
+      years <- input$year %||% character()
+      areas <- input$area %||% character()
+
+      eje_label <- NULL
+      if (plot_type %in% c("promedio", "distribucion", "crecimiento", "heatmap", "violin", "tendencia")) {
+        ejes <- input$eje %||% character()
+        if (length(ejes) > 0) {
+          if (identical(plot_type, "crecimiento")) {
+            eje_label <- as.character(ejes)[[1]]
+          } else if (length(ejes) == 1) {
+            eje_label <- as.character(ejes)[[1]]
+          } else {
+            eje_label <- "VariosEjes"
+          }
+        }
+      }
+
+      make_export_filename_v2(
+        plot_type = plot_type,
         cursos = cursos,
-        eje = eje,
+        years = years,
+        areas = areas,
+        eje = eje_label,
         tipo_a = input$tipo_a %||% NULL,
         tipo_b = input$tipo_b %||% NULL
       )

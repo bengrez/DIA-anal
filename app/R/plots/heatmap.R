@@ -7,9 +7,9 @@ plot_heatmap <- function(df, ejes, facet_row, facet_col, axis_dim = "curso", pal
   axis_dim <- match.arg(axis_dim, c("curso", "tipo"))
 
   df_long <- df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data$curso, .data$tipo, .data$eje) %>%
+    group_by(.data$year, .data$area, .data$curso, .data$tipo, .data$eje) %>%
     summarise(valor = mean(.data$valor, na.rm = TRUE), .groups = "drop")
 
   fill_pal <- palette_values(7, palette_fill)

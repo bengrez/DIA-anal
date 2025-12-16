@@ -37,7 +37,7 @@ plot_crecimiento <- function(
     } else if (identical(rank_mode, "both")) {
       top <- df_delta %>% slice_head(n = n)
       bottom <- df_delta %>% arrange(.data$delta) %>% slice_head(n = n)
-      df_delta <- bind_rows(top, bottom) %>% distinct(.data$curso, .data$n_lista, .keep_all = TRUE)
+      df_delta <- bind_rows(top, bottom) %>% distinct(.data$area, .data$curso, .data$n_lista, .keep_all = TRUE)
     }
   }
 
@@ -52,7 +52,7 @@ plot_crecimiento <- function(
 
   if (identical(kind, "slope")) {
     df_long <- df_delta %>%
-      select(year, curso, n_lista, nombre_estudiante, direccion, valor_A, valor_B) %>%
+      select(year, area, curso, n_lista, nombre_estudiante, direccion, valor_A, valor_B) %>%
       pivot_longer(
         cols = c("valor_A", "valor_B"),
         names_to = "momento",

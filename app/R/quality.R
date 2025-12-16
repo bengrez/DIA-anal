@@ -38,7 +38,7 @@ quality_axes_out_of_range <- function(df, min_val = 0, max_val = 100) {
 }
 
 quality_duplicates <- function(df) {
-  key <- c("fuente", "year", "curso", "tipo", "n_lista")
+  key <- c("fuente", "year", "area", "curso", "tipo", "n_lista")
   missing <- setdiff(key, names(df))
   if (length(missing) > 0) return(data.frame())
 
@@ -55,4 +55,3 @@ quality_summary <- function(df) {
     duplicates = quality_duplicates(df)
   )
 }
-

@@ -17,12 +17,18 @@ default_tipo_order <- function(tipos) {
   if (length(tipos) == 0) return(character())
 
   key <- normalize_name(tipos)
-  desired <- c("diagnostico", "intermedio", "cierre")
+  rules <- list(
+    diagnostico = function(k) grepl("diagnostico", k),
+    intermedio = function(k) grepl("intermedio", k) | grepl("monitoreo", k),
+    cierre = function(k) grepl("cierre", k) | grepl("evaluacion", k)
+  )
+
   pick <- character()
-  for (d in desired) {
-    idx <- which(key == d)
-    if (length(idx) > 0) pick <- c(pick, tipos[idx[[1]]])
+  for (nm in names(rules)) {
+    idx <- which(rules[[nm]](key))
+    if (length(idx) > 0) pick <- c(pick, tipos[idx])
   }
+  pick <- unique(pick)
   c(pick, setdiff(tipos, pick))
 }
 
@@ -56,7 +62,7 @@ required_spec <- function() {
     year = c("year"),
     tipo = c("tipo"),
     curso = c("curso"),
-    n_lista = c("nlista", "nlist"),
+    n_lista = c("nlista", "nlist", "numerodelista"),
     nombre_estudiante = c("nombredelestudiante", "nombreestudiante"),
     nivel_logro = c("niveldelogro")
   )
@@ -99,10 +105,20 @@ parse_numeric_percent <- function(x) {
   suppressWarnings(as.numeric(x))
 }
 
-canonicalize_and_clean <- function(df, source_name) {
+canonicalize_and_clean <- function(df, source_name, meta = NULL) {
+  meta <- meta %||% list()
   mapping <- match_required_columns(names(df))
 
   missing_required <- names(mapping)[is.na(unlist(mapping))]
+  allow_from_meta <- c("year", "tipo", "curso")
+  allow_from_meta <- allow_from_meta[!is.null(allow_from_meta)]
+  allow_ok <- vapply(
+    allow_from_meta,
+    function(k) !is.null(meta[[k]]) && !all(is.na(meta[[k]])) && nzchar(as.character(meta[[k]])[[1]]),
+    logical(1)
+  )
+  missing_required <- setdiff(missing_required, allow_from_meta[allow_ok])
+
   if (length(missing_required) > 0) {
     pretty <- c(
       year = "Year",
@@ -121,19 +137,25 @@ canonicalize_and_clean <- function(df, source_name) {
     )
   }
 
-  df <- df %>%
-    rename(
-      year = all_of(mapping$year),
-      tipo = all_of(mapping$tipo),
-      curso = all_of(mapping$curso),
-      n_lista = all_of(mapping$n_lista),
-      nombre_estudiante = all_of(mapping$nombre_estudiante),
-      nivel_logro = all_of(mapping$nivel_logro)
-    )
+  # Renombrar solo columnas presentes (evita fallar si Year/Tipo/Curso vienen desde metadata).
+  for (new_name in names(mapping)) {
+    old_name <- mapping[[new_name]]
+    if (!is.na(old_name) && old_name %in% names(df) && !identical(old_name, new_name)) {
+      names(df)[names(df) == old_name] <- new_name
+    }
+  }
+
+  if (!"year" %in% names(df) && !is.null(meta$year)) df$year <- meta$year
+  if (!"tipo" %in% names(df) && !is.null(meta$tipo)) df$tipo <- meta$tipo
+  if (!"curso" %in% names(df) && !is.null(meta$curso)) df$curso <- meta$curso
 
   df <- df %>%
     mutate(
       fuente = as.character(source_name),
+      source_file = as.character(meta$source_file %||% source_name),
+      area = as.character(meta$area %||% "General"),
+      rbd = as.character(meta$rbd %||% NA_character_),
+      hc = as.character(meta$hc %||% NA_character_),
       year = suppressWarnings(as.numeric(.data$year)),
       tipo = as.character(.data$tipo),
       curso = as.character(.data$curso),
@@ -148,6 +170,14 @@ canonicalize_and_clean <- function(df, source_name) {
       mutate(across(all_of(axis_cols), parse_numeric_percent))
   }
 
+  # Eje sintético para comparaciones entre áreas con ejes distintos.
+  if (length(axis_cols) > 0) {
+    col_name <- "Promedio (todos los ejes)"
+    mat <- as.matrix(df[, axis_cols, drop = FALSE])
+    df[[col_name]] <- rowMeans(mat, na.rm = TRUE)
+    df[[col_name]][is.nan(df[[col_name]])] <- NA_real_
+  }
+
   df
 }
 
@@ -158,11 +188,11 @@ read_dia_excel <- function(path, sheet = 1, source_name = NULL) {
 
   path <- normalizePath(path, winslash = "/", mustWork = TRUE)
   df <- readxl::read_excel(path, sheet = sheet, .name_repair = "minimal")
-  canonicalize_and_clean(df, source_name = source_name)
+  canonicalize_and_clean(df, source_name = source_name, meta = list(source_file = basename(path)))
 }
 
 required_internal_cols <- function() {
-  c("year", "tipo", "curso", "n_lista", "nombre_estudiante", "nivel_logro", "fuente")
+  c("year", "tipo", "curso", "n_lista", "nombre_estudiante", "nivel_logro", "fuente", "area", "rbd", "hc", "source_file")
 }
 
 detect_axes <- function(df) {
