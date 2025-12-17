@@ -240,7 +240,7 @@ ui <- dashboardPage(
           box(
             width = 12,
             title = "Tabla: ejes por curso",
-            status = "default",
+            status = "info",
             solidHeader = TRUE,
             DTOutput("table_axes")
           )
@@ -288,7 +288,7 @@ ui <- dashboardPage(
           box(
             width = 12,
             title = "Tablas YoY",
-            status = "default",
+            status = "info",
             solidHeader = TRUE,
             tabsetPanel(
               tabPanel("Niveles", DTOutput("table_yoy_levels")),
@@ -321,7 +321,7 @@ ui <- dashboardPage(
           box(
             width = 12,
             title = "Vista previa (datos filtrados)",
-            status = "default",
+            status = "info",
             solidHeader = TRUE,
             numericInput("preview_n", "Filas a mostrar", value = 50, min = 10, max = 500, step = 10),
             DTOutput("table_preview")
