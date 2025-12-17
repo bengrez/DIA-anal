@@ -253,3 +253,25 @@ plot_yoy_axes_by_course <- function(df_diff) {
       legend.position = "bottom"
     )
 }
+
+plot_student_tracking <- function(df_track, title = "Trayectoria por estudiante") {
+  if (is.null(df_track) || nrow(df_track) == 0) {
+    return(ggplot2::ggplot() + ggplot2::theme_void() + ggplot2::ggtitle("Sin datos"))
+  }
+
+  dfp <- df_track %>%
+    dplyr::mutate(
+      tipo = order_tipo_for_facets(.data$tipo),
+      student_id = paste0(.data$course, " · ", .data$n_lista)
+    )
+
+  ggplot2::ggplot(dfp, ggplot2::aes(x = .data$tipo, y = .data$pct, group = .data$student_id)) +
+    ggplot2::geom_line(color = "#2C3E50", alpha = 0.35, linewidth = 0.5) +
+    ggplot2::geom_point(color = "#2C3E50", alpha = 0.55, size = 1.6) +
+    ggplot2::geom_hline(yintercept = 60, linetype = "dashed", color = "#666666") +
+    scale_pct_0_100() +
+    ggplot2::labs(title = title, x = "Periodo", y = "% logro") +
+    science_theme() +
+    ggplot2::theme(legend.position = "none") +
+    ggplot2::facet_grid(year ~ course)
+}

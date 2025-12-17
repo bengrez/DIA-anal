@@ -145,3 +145,39 @@ calc_yoy_diff <- function(df, year_a, year_b, value_col) {
       )
     )
 }
+
+summarize_student_tracking <- function(df, axis = "Promedio (todos los ejes)") {
+  # Devuelve una tabla larga para graficar trayectorias por estudiante.
+  #
+  # Key de estudiante: (year, course, n_lista). Esto permite comparar periodos
+  # dentro del mismo curso/año (lo más consistente para reportes de plataforma).
+  if (is.null(df) || nrow(df) == 0) return(data.frame())
+
+  axes <- detect_axes(df)
+  if (!axis %in% axes) {
+    stop("Eje/medida inválida para trayectoria: ", axis, call. = FALSE)
+  }
+
+  df2 <- add_science_fields(df) %>%
+    dplyr::filter(!is.na(.data$year), !is.na(.data$course), !is.na(.data$n_lista)) %>%
+    dplyr::mutate(tipo = as.character(.data$tipo))
+
+  df2 %>%
+    dplyr::group_by(.data$year, .data$tipo, .data$course, .data$grade, .data$section, .data$n_lista, .data$nombre_estudiante) %>%
+    dplyr::summarise(pct = mean(.data[[axis]], na.rm = TRUE), .groups = "drop") %>%
+    dplyr::filter(!is.na(.data$pct))
+}
+
+tracking_2plus_filter <- function(df_tracking) {
+  # Mantiene solo estudiantes con ≥2 periodos disponibles.
+  if (is.null(df_tracking) || nrow(df_tracking) == 0) return(df_tracking)
+
+  counts <- df_tracking %>%
+    dplyr::distinct(.data$year, .data$course, .data$n_lista, .data$tipo) %>%
+    dplyr::count(.data$year, .data$course, .data$n_lista, name = "n_tipos")
+
+  df_tracking %>%
+    dplyr::inner_join(counts, by = c("year", "course", "n_lista")) %>%
+    dplyr::filter(.data$n_tipos >= 2) %>%
+    dplyr::select(-"n_tipos")
+}

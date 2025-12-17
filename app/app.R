@@ -68,6 +68,7 @@ ui <- dashboardPage(
       menuItem("Asistente", tabName = "assistant", icon = icon("magic")),
       menuItem("Overview", tabName = "overview", icon = icon("chart-column")),
       menuItem("Ejes Temáticos", tabName = "axes", icon = icon("th")),
+      menuItem("Trayectoria", tabName = "tracking", icon = icon("chart-line")),
       menuItem("Comparaciones", tabName = "comparisons", icon = icon("arrows-left-right")),
       menuItem("Datos", tabName = "data", icon = icon("table"))
     ),
@@ -311,6 +312,44 @@ ui <- dashboardPage(
         )
       ),
       tabItem(
+        tabName = "tracking",
+        fluidRow(
+          box(
+            width = 4,
+            title = "Selección",
+            status = "info",
+            solidHeader = TRUE,
+            uiOutput("tracking_controls_ui"),
+            checkboxInput("tracking_only_2plus", "Solo estudiantes con ≥2 evaluaciones", value = TRUE),
+            sliderInput("tracking_n", "Máx. estudiantes a mostrar", min = 10, max = 200, value = 60, step = 10),
+            tags$small(class = "text-muted", "Recomendado: elige 1 curso + 1 año para una lectura clara.")
+          ),
+          box(
+            width = 8,
+            title = "Trayectoria por estudiante (porcentaje)",
+            status = "primary",
+            solidHeader = TRUE,
+            plotlyOutput("plot_tracking", height = 520),
+            br(),
+            fluidRow(
+              column(2, downloadButton("dl_tracking_png", "PNG")),
+              column(2, downloadButton("dl_tracking_csv", "CSV"))
+            )
+          )
+        ),
+        fluidRow(
+          box(
+            width = 12,
+            title = "Datos (tabla)",
+            status = "info",
+            solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
+            DTOutput("table_tracking")
+          )
+        )
+      ),
+      tabItem(
         tabName = "data",
         fluidRow(
           box(
@@ -517,6 +556,87 @@ server <- function(input, output, session) {
     }
     filter_grade_section(df)
   })
+
+  # --- Tracking --------------------------------------------------------------
+  output$tracking_controls_ui <- renderUI({
+    df <- data_clean()
+    validate(need(nrow(df) > 0, "Carga datos para habilitar trayectoria."))
+
+    parts <- course_parts(df$curso)
+    df$course <- parts$course
+    courses <- sort(unique(df$course))
+    years <- sort(unique(df$year))
+
+    axes <- detect_axes(df)
+    axis_choices <- c("Promedio (todos los ejes)", setdiff(axes, "Promedio (todos los ejes)"))
+    axis_choices <- axis_choices[axis_choices %in% axes]
+
+    tagList(
+      selectInput("tracking_course", "Curso", choices = courses, selected = courses[[1]]),
+      selectInput("tracking_year", "Año", choices = years, selected = years[[length(years)]]),
+      selectInput("tracking_axis", "Medida", choices = axis_choices, selected = axis_choices[[1]])
+    )
+  })
+
+  tracking_data <- reactive({
+    req(input$tracking_course, input$tracking_year, input$tracking_axis)
+
+    df <- data_clean()
+    parts <- course_parts(df$curso)
+    df$course <- parts$course
+
+    df <- df %>%
+      filter(.data$course %in% as.character(input$tracking_course)) %>%
+      filter(.data$year %in% suppressWarnings(as.integer(input$tracking_year)))
+
+    # Nota: para trayectoria ignoramos el filtro de Periodo para no “romper” la condición ≥2.
+    track <- summarize_student_tracking(df, axis = as.character(input$tracking_axis))
+    if (isTRUE(input$tracking_only_2plus)) {
+      track <- tracking_2plus_filter(track)
+    }
+
+    n_show <- suppressWarnings(as.integer(input$tracking_n %||% 60))
+    if (is.na(n_show) || n_show <= 0) n_show <- 60
+
+    # Submuestreo estable para no saturar el gráfico.
+    ids <- unique(paste(track$year, track$course, track$n_lista, sep = "__"))
+    if (length(ids) > n_show) {
+      keep_ids <- ids[seq_len(n_show)]
+      keep <- paste(track$year, track$course, track$n_lista, sep = "__") %in% keep_ids
+      track <- track[keep, , drop = FALSE]
+    }
+
+    track
+  })
+
+  output$plot_tracking <- renderPlotly({
+    df <- tracking_data()
+    validate(need(nrow(df) > 0, "No hay estudiantes con datos suficientes para trayectoria (revisa filtros)."))
+    gg <- plot_student_tracking(df, title = paste0("Trayectoria: ", input$tracking_axis))
+    plotly::ggplotly(gg, tooltip = c("x", "y"))
+  })
+
+  output$table_tracking <- renderDT({
+    df <- tracking_data() %>%
+      mutate(pct = round(.data$pct, 1)) %>%
+      arrange(.data$course, .data$n_lista, .data$tipo)
+    datatable(df, options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$dl_tracking_csv <- downloadHandler(
+    filename = function() "trayectoria_estudiantes.csv",
+    content = function(file) {
+      utils::write.csv(tracking_data(), file = file, row.names = FALSE, fileEncoding = "UTF-8")
+    }
+  )
+
+  output$dl_tracking_png <- downloadHandler(
+    filename = function() "trayectoria_estudiantes.png",
+    content = function(file) {
+      gg <- plot_student_tracking(tracking_data(), title = paste0("Trayectoria: ", input$tracking_axis))
+      ggplot2::ggsave(file, gg, width = 12, height = 8, dpi = 300)
+    }
+  )
 
   # --- Summary boxes ---------------------------------------------------------
   output$vb_rows <- renderValueBox({
