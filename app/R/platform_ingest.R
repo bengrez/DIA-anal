@@ -21,8 +21,12 @@ re_capture <- function(pattern, x, ignore_case = FALSE) {
 normalize_area <- function(area_raw) {
   if (is.na(area_raw) || !nzchar(area_raw)) return("General")
   key <- toupper(trimws(area_raw))
+  # Unificar separadores: la plataforma puede usar espacios o underscores.
+  key <- gsub("[_]+", " ", key)
+  key <- gsub("\\s+", " ", key)
   if (identical(key, "MATEMATICA")) return("Matemática")
   if (identical(key, "LECTURA")) return("Lectura")
+  if (identical(key, "CIENCIAS NATURALES")) return("Ciencias Naturales")
   tools::toTitleCase(tolower(key))
 }
 
@@ -73,7 +77,7 @@ parse_dia_platform_filename <- function(path) {
   tipo_raw <- re_capture("Equipo_docente_(.+?)_(20\\d{2})$", no_ext, ignore_case = TRUE)
   if (is.na(tipo_raw) || !nzchar(tipo_raw)) {
     # Fallback: busca tokens conocidos en el nombre.
-    tipo_raw <- re_capture("(Diagnostico|Monitoreo|Evaluacion_de_cierre|Cierre)", no_ext, ignore_case = TRUE)
+    tipo_raw <- re_capture("(Diagnostico|Monitoreo|Evaluacion[_ ]?Cierre|Evaluacion_de_cierre|Cierre)", no_ext, ignore_case = TRUE)
   }
 
   list(

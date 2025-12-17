@@ -169,7 +169,9 @@ canonicalize_and_clean <- function(df, source_name, meta = NULL) {
     mutate(
       fuente = as.character(source_name),
       source_file = as.character(meta$source_file %||% source_name),
-      area = as.character(meta$area %||% "General"),
+      # Área/Asignatura: en esta versión se usa como "Ciencias Naturales" por defecto
+      # cuando el archivo no trae contexto (por ejemplo, plantilla .xlsx).
+      area = as.character(meta$area %||% "Ciencias Naturales"),
       rbd = as.character(meta$rbd %||% NA_character_),
       hc = as.character(meta$hc %||% NA_character_),
       year = suppressWarnings(as.numeric(.data$year)),

@@ -98,7 +98,7 @@ ui <- tagList(
     )
   ),
   page_sidebar(
-  title = "Gráficos DIA (MVP)",
+  title = "Gráficos DIA — Ciencias Naturales",
   theme = bs_theme(version = 5, bootswatch = "flatly"),
   sidebar = sidebar(
     width = 360,
@@ -115,7 +115,7 @@ ui <- tagList(
             "Excel (.xlsx) — formato de la app" = "xlsx",
             "Carpeta DIA plataforma (.xls) — muchos cursos/áreas" = "folder"
           ),
-          selected = "xlsx"
+          selected = "folder"
         ),
         conditionalPanel(
           condition = "input.data_mode == 'xlsx'",
@@ -258,7 +258,7 @@ ui <- tagList(
         title = "Inicio",
         value = "inicio",
         card(
-          card_header("Generador de gráficos DIA"),
+          card_header("Generador de gráficos DIA — Ciencias Naturales"),
           tags$p("Objetivo: ayudarte a generar gráficos claros y exportables (PNG/ZIP) desde archivos Excel, sin escribir código."),
           tags$h5("Flujo recomendado"),
           tags$ol(
@@ -1048,12 +1048,20 @@ server <- function(input, output, session) {
       if (length(keep) == 0) default else keep
     }
 
-    # Área (siempre)
-    area_selected <- preserve_multi(isolate(input$area), ch$areas, default = ch$areas)
-    ui_list <- c(
-      ui_list,
-      list(selectInput("area", "Área(s)", choices = ch$areas, selected = area_selected, multiple = TRUE))
-    )
+    # Área: en la versión enfocada a Ciencias, normalmente habrá una sola.
+    # Si aparece más de una área (caso avanzado), se habilita el selector.
+    if (length(ch$areas) > 1) {
+      area_selected <- preserve_multi(isolate(input$area), ch$areas, default = ch$areas)
+      ui_list <- c(
+        ui_list,
+        list(selectInput("area", "Área(s)", choices = ch$areas, selected = area_selected, multiple = TRUE))
+      )
+    } else {
+      area_selected <- ch$areas
+      if (length(area_selected) == 1 && nzchar(area_selected[[1]])) {
+        ui_list <- c(ui_list, list(tags$small(class = "text-muted", paste0("Área: ", area_selected[[1]]))))
+      }
+    }
 
     if (length(ch$fuentes) > 1) {
       fuente_selected <- preserve_multi(isolate(input$fuente), ch$fuentes, default = ch$fuentes)

@@ -28,3 +28,4 @@ app/Output/
 
 # Local data (may contain sensitive student info)
 data_in/
+data_*/

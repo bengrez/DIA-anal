@@ -1,4 +1,4 @@
-# App de escritorio (R + Shiny) - Gráficos DIA
+# App de escritorio (R + Shiny) - Gráficos DIA (Ciencias Naturales)
 
 App local para docentes: carga 1–2 archivos Excel y genera gráficos listos para exportar en PNG (y paquetes ZIP).
 
@@ -28,14 +28,14 @@ La app asume:
 ### Contexto desde el nombre de archivo
 La app infiere automáticamente:
 - `RBD` (ej. `RBD12775`)
-- `Área` (ej. `LECTURA`, `MATEMATICA`)
+- `Área` (ej. `CIENCIAS NATURALES`)
 - `Curso` (ej. `2_A`, `II_B`)
 - `Tipo DIA` (Diagnóstico / Monitoreo intermedio / Evaluación de cierre)
 - `Año` (ej. `2025`)
 
 Ejemplos:
-- `RBD12775_DIA_LECTURA_II_B (HC-310)_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
-- `RBD12775_DIA_MATEMATICA_2_A_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
+- `RBD12775_DIA_CIENCIAS NATURALES_5_A_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
+- `RBD12775_DIA_CIENCIAS NATURALES_5_A_Resultados_de_estudiantes_Equipo_docente_Evaluacion_Cierre_2023.xls`
 
 ### Comparar áreas con ejes distintos
 Cuando las áreas tienen ejes/ámbitos diferentes, la app agrega un eje sintético:
@@ -61,7 +61,7 @@ B) Distribución (boxplot o histograma, por curso, eje seleccionable)
 C) Nivel de logro (barras apiladas proporcionales, por curso y Tipo)  
 D) Crecimiento por estudiante (delta o slope chart, compara 2 Tipos)
 
-Tip: para comparar múltiples **Áreas** en un mismo análisis, usa **Facets por Área** (fila o columna).
+Tip (avanzado): si cargas más de una **Área** por error, puedes compararlas usando **Facets por Área** (fila o columna).
 
 ## Herramientas extra (tabs)
 - **Tablas**: tabla derivada del gráfico actual (preview + descarga CSV/XLSX).
