@@ -41,6 +41,7 @@ Nota: `Evaluacion_Cierre` se considera equivalente a `Cierre` en la app.
 - **Desempeño por eje temático** (barras por curso) + **heatmap** ejes × cursos.
 - **Comparaciones YoY** (diferencia en puntos porcentuales entre 2 años) para niveles y ejes.
 - **Trayectoria por estudiante** (solo estudiantes con ≥2 evaluaciones en el curso/año seleccionado).
+- **Analítica avanzada**: cohortes (sección a través de años), evolución dentro del año, pruebas estadísticas y correlación/PCA entre ejes.
 
 Nota: los `.xls` actuales de la plataforma para Ciencias Naturales traen porcentajes por eje + nivel de logro por estudiante. Si en el futuro agregas reportes con habilidades/indicadores, la app puede extenderse para soportarlos.
 

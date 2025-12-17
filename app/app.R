@@ -38,6 +38,8 @@ source(file.path("R", "transform.R"))
 source(file.path("R", "science_processing.R"))
 source(file.path("R", "science_plots.R"))
 source(file.path("R", "template.R"))
+source(file.path("R", "advanced_processing.R"))
+source(file.path("R", "advanced_plots.R"))
 
 options(shiny.maxRequestSize = 200 * 1024^2) # 200 MB
 
@@ -69,6 +71,7 @@ ui <- dashboardPage(
       menuItem("Overview", tabName = "overview", icon = icon("chart-column")),
       menuItem("Ejes Temáticos", tabName = "axes", icon = icon("th")),
       menuItem("Trayectoria", tabName = "tracking", icon = icon("chart-line")),
+      menuItem("Analítica", tabName = "analytics", icon = icon("microscope")),
       menuItem("Comparaciones", tabName = "comparisons", icon = icon("arrows-left-right")),
       menuItem("Datos", tabName = "data", icon = icon("table"))
     ),
@@ -350,6 +353,162 @@ ui <- dashboardPage(
         )
       ),
       tabItem(
+        tabName = "analytics",
+        tabsetPanel(
+          tabPanel(
+            "Cohortes",
+            fluidRow(
+              box(
+                width = 4,
+                title = "Controles",
+                status = "info",
+                solidHeader = TRUE,
+                uiOutput("cohort_controls_ui"),
+                checkboxInput("cohort_show_ci", "Mostrar banda 95% (si aplica)", value = TRUE),
+                actionButton("cohort_refresh", "Actualizar cohortes", icon = icon("rotate"))
+              ),
+              box(
+                width = 8,
+                title = "Trayectoria de cohortes (sección)",
+                status = "primary",
+                solidHeader = TRUE,
+                plotlyOutput("plot_cohort_trajectory", height = 520),
+                br(),
+                fluidRow(
+                  column(2, downloadButton("dl_cohort_png", "PNG")),
+                  column(2, downloadButton("dl_cohort_csv", "CSV"))
+                )
+              )
+            ),
+            fluidRow(
+              box(
+                width = 12,
+                title = "Composición por niveles (stacked area)",
+                status = "warning",
+                solidHeader = TRUE,
+                plotlyOutput("plot_cohort_area", height = 560)
+              )
+            ),
+            fluidRow(
+              box(
+                width = 12,
+                title = "Datos (tabla)",
+                status = "info",
+                solidHeader = TRUE,
+                collapsible = TRUE,
+                collapsed = TRUE,
+                DTOutput("table_cohort")
+              )
+            )
+          ),
+          tabPanel(
+            "Dentro del año",
+            fluidRow(
+              box(
+                width = 4,
+                title = "Controles",
+                status = "info",
+                solidHeader = TRUE,
+                uiOutput("within_controls_ui"),
+                tags$small(class = "text-muted", "Usa periodos disponibles (Diagnóstico/Monitoreo/Cierre).")
+              ),
+              box(
+                width = 8,
+                title = "Evolución dentro del año",
+                status = "primary",
+                solidHeader = TRUE,
+                plotlyOutput("plot_within_year", height = 520)
+              )
+            )
+          ),
+          tabPanel(
+            "Pruebas estadísticas",
+            fluidRow(
+              box(
+                width = 4,
+                title = "Controles",
+                status = "info",
+                solidHeader = TRUE,
+                uiOutput("stats_controls_ui")
+              ),
+              box(
+                width = 8,
+                title = "Resultados",
+                status = "primary",
+                solidHeader = TRUE,
+                uiOutput("stats_summary_ui")
+              )
+            ),
+            fluidRow(
+              box(
+                width = 12,
+                title = "Tabla de resultados",
+                status = "info",
+                solidHeader = TRUE,
+                collapsible = TRUE,
+                collapsed = TRUE,
+                DTOutput("table_stats")
+              )
+            )
+          ),
+          tabPanel(
+            "Correlación y PCA",
+            fluidRow(
+              box(
+                width = 4,
+                title = "Controles",
+                status = "info",
+                solidHeader = TRUE,
+                uiOutput("corr_controls_ui"),
+                downloadButton("dl_corr_csv", "Descargar matriz (CSV)")
+              ),
+              box(
+                width = 8,
+                title = "Correlación entre ejes",
+                status = "primary",
+                solidHeader = TRUE,
+                plotlyOutput("plot_corr", height = 520)
+              )
+            ),
+            fluidRow(
+              box(
+                width = 6,
+                title = "PCA: varianza explicada",
+                status = "info",
+                solidHeader = TRUE,
+                plotlyOutput("plot_pca_scree", height = 360)
+              ),
+              box(
+                width = 6,
+                title = "PCA: biplot",
+                status = "info",
+                solidHeader = TRUE,
+                plotlyOutput("plot_pca_biplot", height = 360)
+              )
+            )
+          ),
+          tabPanel(
+            "Ayuda",
+            fluidRow(
+              box(
+                width = 12,
+                title = "Guía rápida (Phase 3)",
+                status = "primary",
+                solidHeader = TRUE,
+                tags$p("Estas herramientas avanzadas trabajan con los datos disponibles hoy (ejes + nivel de logro)."),
+                tags$ul(
+                  tags$li(tags$strong("Cohortes:"), " sigue una sección (A/B/…) a través de años, asumiendo progresión 1 grado/año."),
+                  tags$li(tags$strong("Dentro del año:"), " compara Diagnóstico → Monitoreo → Cierre para cada curso/año."),
+                  tags$li(tags$strong("Pruebas:"), " estima si cambios son significativos (p-value) y reporta tamaños de efecto."),
+                  tags$li(tags$strong("Correlación/PCA:"), " explora relaciones entre ejes a nivel agregado por curso.")
+                ),
+                tags$p(class = "text-muted", "Si en el futuro importas reportes con habilidades/indicadores, se pueden activar análisis adicionales.")
+              )
+            )
+          )
+        )
+      ),
+      tabItem(
         tabName = "data",
         fluidRow(
           box(
@@ -557,6 +716,15 @@ server <- function(input, output, session) {
     filter_grade_section(df)
   })
 
+  base_filtered_no_period <- reactive({
+    # Para análisis que necesitan múltiples periodos (cohortes intra-año, etc.)
+    df <- data_clean()
+    if (!is.null(input$year_filter) && length(input$year_filter) > 0) {
+      df <- df %>% filter(.data$year %in% suppressWarnings(as.integer(input$year_filter)))
+    }
+    filter_grade_section(df)
+  })
+
   # --- Tracking --------------------------------------------------------------
   output$tracking_controls_ui <- renderUI({
     df <- data_clean()
@@ -637,6 +805,352 @@ server <- function(input, output, session) {
       ggplot2::ggsave(file, gg, width = 12, height = 8, dpi = 300)
     }
   )
+
+  # --- Analítica (Phase 3) --------------------------------------------------
+  output$cohort_controls_ui <- renderUI({
+    df <- base_filtered_no_period()
+    validate(need(nrow(df) > 0, "Carga datos para habilitar cohortes."))
+
+    metric_choices <- metric_options(df)
+    parts <- course_parts(df$curso)
+    periods <- sort(unique(as.character(df$tipo)))
+    years <- sort(unique(df$year))
+
+    tagList(
+      selectInput("cohort_period", "Periodo", choices = periods, selected = if ("Cierre" %in% periods) "Cierre" else periods[[1]]),
+      selectInput("cohort_metric", "Métrica", choices = metric_choices, selected = metric_choices[[1]]),
+      sliderInput("cohort_min_points", "Mínimo de puntos (años)", min = 2, max = 4, value = 2, step = 1),
+      uiOutput("cohort_picker_ui"),
+      tags$small(class = "text-muted", "Cohorte = misma sección avanzando 1 grado por año (no matching individual).")
+    )
+  })
+
+  cohorts_state <- reactiveVal(list(cohorts = data.frame(), map = data.frame()))
+
+  observeEvent(list(state(), input$cohort_refresh, input$cohort_period, input$cohort_min_points), {
+    df <- base_filtered_no_period()
+    if (is.null(df) || nrow(df) == 0) return()
+    period <- input$cohort_period %||% NULL
+    min_points <- as.integer(input$cohort_min_points %||% 2)
+    if (is.na(min_points) || min_points < 2) min_points <- 2
+    cohorts_state(identify_cohorts(df, min_points = min_points, period = period))
+  }, ignoreInit = TRUE)
+
+  output$cohort_picker_ui <- renderUI({
+    cs <- cohorts_state()
+    cohorts <- cs$cohorts
+    if (is.null(cohorts) || nrow(cohorts) == 0) {
+      return(tags$p(class = "text-muted", "No se detectaron cohortes con esos filtros."))
+    }
+    cohort_ids <- cohorts$cohort_id
+    checkboxGroupInput("cohort_ids", "Cohortes", choices = cohort_ids, selected = cohort_ids)
+  })
+
+  cohort_metric_tbl <- reactive({
+    df <- base_filtered_no_period()
+    req(input$cohort_metric, input$cohort_period)
+    summarise_course_metric(df, metric = input$cohort_metric, period = input$cohort_period)
+  })
+
+  cohort_joined <- reactive({
+    cs <- cohorts_state()
+    cm <- cohort_metric_tbl()
+    if (is.null(cs$map) || nrow(cs$map) == 0) return(data.frame())
+    df <- join_cohort_timepoints(cm, cs$map)
+    if (!is.null(input$cohort_ids) && length(input$cohort_ids) > 0) {
+      df <- df %>% filter(.data$cohort_id %in% as.character(input$cohort_ids))
+    }
+    df
+  })
+
+  cohort_ref_value <- reactive({
+    df <- cohort_metric_tbl()
+    if (is.null(df) || nrow(df) == 0) return(NA_real_)
+    mean(df$value, na.rm = TRUE)
+  })
+
+  output$plot_cohort_trajectory <- renderPlotly({
+    df <- cohort_joined()
+    validate(need(nrow(df) > 0, "No hay datos para cohortes (revisa filtros)."))
+    metric_lbl <- as.character(input$cohort_metric %||% "Métrica")
+    gg <- plot_cohort_trajectory(
+      df,
+      metric_label = metric_lbl,
+      ref_value = cohort_ref_value(),
+      show_ci = isTRUE(input$cohort_show_ci)
+    )
+    plotly::ggplotly(gg, tooltip = c("text", "y", "colour"))
+  })
+
+  output$table_cohort <- renderDT({
+    df <- cohort_joined() %>%
+      mutate(value = round(.data$value, 1), ci_low = round(.data$ci_low, 1), ci_high = round(.data$ci_high, 1)) %>%
+      arrange(.data$cohort_id, .data$time_index)
+    datatable(df, options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
+  })
+
+  output$dl_cohort_csv <- downloadHandler(
+    filename = function() "cohortes_metricas.csv",
+    content = function(file) {
+      utils::write.csv(cohort_joined(), file = file, row.names = FALSE, fileEncoding = "UTF-8")
+    }
+  )
+
+  output$dl_cohort_png <- downloadHandler(
+    filename = function() "cohortes_trayectoria.png",
+    content = function(file) {
+      gg <- plot_cohort_trajectory(
+        cohort_joined(),
+        metric_label = as.character(input$cohort_metric %||% "Métrica"),
+        ref_value = cohort_ref_value(),
+        show_ci = isTRUE(input$cohort_show_ci)
+      )
+      ggplot2::ggsave(file, gg, width = 12, height = 7, dpi = 300)
+    }
+  )
+
+  cohort_levels_tbl <- reactive({
+    df <- base_filtered_no_period()
+    cs <- cohorts_state()
+    req(input$cohort_period)
+    if (is.null(cs$map) || nrow(cs$map) == 0) return(data.frame())
+    out <- cohort_levels_distribution(df, cs$map, period = input$cohort_period)
+    if (!is.null(input$cohort_ids) && length(input$cohort_ids) > 0) {
+      out <- out %>% filter(.data$cohort_id %in% as.character(input$cohort_ids))
+    }
+    out
+  })
+
+  output$plot_cohort_area <- renderPlotly({
+    df <- cohort_levels_tbl()
+    validate(need(nrow(df) > 0, "No hay datos para composición de cohortes."))
+    gg <- plot_cohort_levels_area(df)
+    plotly::ggplotly(gg, tooltip = c("x", "y", "fill"))
+  })
+
+  output$within_controls_ui <- renderUI({
+    df <- base_filtered_no_period()
+    validate(need(nrow(df) > 0, "Carga datos para habilitar evolución dentro del año."))
+    years <- sort(unique(df$year))
+    periods <- sort(unique(as.character(df$tipo)))
+    metric_choices <- metric_options(df)
+
+    tagList(
+      selectInput("within_year", "Año", choices = years, selected = years[[length(years)]]),
+      checkboxGroupInput("within_periods", "Periodos", choices = periods, selected = periods),
+      selectInput("within_metric", "Métrica", choices = metric_choices, selected = metric_choices[[1]])
+    )
+  })
+
+  within_year_tbl <- reactive({
+    req(input$within_year, input$within_periods, input$within_metric)
+    df <- base_filtered_no_period() %>%
+      filter(.data$year %in% as.integer(input$within_year)) %>%
+      filter(.data$tipo %in% as.character(input$within_periods))
+
+    metric <- as.character(input$within_metric)
+    course_tbl <- summarise_course_metric(df, metric = metric, period = NULL) %>%
+      dplyr::mutate(tipo = as.character(.data$tipo))
+
+    if (nrow(course_tbl) == 0) return(data.frame())
+
+    # Tendencia (delta entre primer y último periodo disponible).
+    course_tbl <- course_tbl %>% dplyr::mutate(tipo_ord = period_order_key(.data$tipo))
+    trend_tbl <- course_tbl %>%
+      dplyr::group_by(.data$year, .data$course) %>%
+      dplyr::summarise(
+        first = .data$value[which.min(.data$tipo_ord)],
+        last = .data$value[which.max(.data$tipo_ord)],
+        delta = last - first,
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        trend = dplyr::case_when(.data$delta > 1 ~ "mejora", .data$delta < -1 ~ "baja", TRUE ~ "igual")
+      )
+
+    dplyr::left_join(course_tbl, trend_tbl, by = c("year", "course"))
+  })
+
+  output$plot_within_year <- renderPlotly({
+    df <- within_year_tbl()
+    validate(need(nrow(df) > 0, "No hay datos para evolución dentro del año."))
+    gg <- plot_within_year_evolution(df, metric_label = as.character(input$within_metric))
+    plotly::ggplotly(gg, tooltip = c("x", "y", "colour"))
+  })
+
+  # --- Pruebas estadísticas --------------------------------------------------
+  output$stats_controls_ui <- renderUI({
+    df <- base_filtered_no_period()
+    validate(need(nrow(df) > 0, "Carga datos para habilitar pruebas."))
+
+    years <- sort(unique(df$year))
+    periods <- sort(unique(as.character(df$tipo)))
+    parts <- course_parts(df$curso)
+    grades <- sort(unique(parts$grade[!is.na(parts$grade)]))
+    sections <- sort(unique(parts$section[!is.na(parts$section)]))
+    metrics <- metric_options(df)
+
+    tagList(
+      selectInput(
+        "stats_mode",
+        "Análisis",
+        choices = c(
+          "Cambio de niveles entre años (Chi²)" = "chi",
+          "Comparación de secciones (A vs B)" = "sections"
+        ),
+        selected = "chi"
+      ),
+      conditionalPanel(
+        condition = "input.stats_mode == 'chi'",
+        selectInput("chi_year_a", "Año A", choices = years, selected = if (2024 %in% years) 2024 else years[[1]]),
+        selectInput("chi_year_b", "Año B", choices = years, selected = if (2025 %in% years) 2025 else years[[length(years)]]),
+        selectInput("chi_period", "Periodo", choices = periods, selected = if ("Cierre" %in% periods) "Cierre" else periods[[1]])
+      ),
+      conditionalPanel(
+        condition = "input.stats_mode == 'sections'",
+        selectInput("sec_year", "Año", choices = years, selected = years[[length(years)]]),
+        selectInput("sec_period", "Periodo", choices = periods, selected = if ("Cierre" %in% periods) "Cierre" else periods[[1]]),
+        selectInput("sec_grade", "Grado", choices = grades, selected = grades[[1]]),
+        selectInput("sec_a", "Sección A", choices = sections, selected = sections[[1]]),
+        selectInput("sec_b", "Sección B", choices = sections, selected = if (length(sections) >= 2) sections[[2]] else sections[[1]]),
+        selectInput("sec_metric", "Métrica", choices = metrics, selected = metrics[[1]])
+      )
+    )
+  })
+
+  stats_result <- reactive({
+    df <- base_filtered_no_period()
+    req(input$stats_mode)
+
+    if (identical(input$stats_mode, "chi")) {
+      req(input$chi_year_a, input$chi_year_b, input$chi_period)
+      tbl <- chi_square_levels_by_grade(df, year_a = input$chi_year_a, year_b = input$chi_year_b, period = input$chi_period)
+      return(list(mode = "chi", table = tbl))
+    }
+
+    req(input$sec_year, input$sec_period, input$sec_grade, input$sec_a, input$sec_b, input$sec_metric)
+    res <- compare_sections_metric(
+      df,
+      grade = input$sec_grade,
+      year = input$sec_year,
+      period = input$sec_period,
+      section_a = input$sec_a,
+      section_b = input$sec_b,
+      metric = input$sec_metric
+    )
+    tbl <- if (isTRUE(res$ok)) {
+      data.frame(
+        grade = as.integer(input$sec_grade),
+        year = as.integer(input$sec_year),
+        period = as.character(input$sec_period),
+        section_a = as.character(input$sec_a),
+        section_b = as.character(input$sec_b),
+        metric = as.character(input$sec_metric),
+        test = res$test,
+        p_value = res$p_value,
+        diff = res$diff,
+        ci_low = res$ci_low,
+        ci_high = res$ci_high,
+        effect = res$effect,
+        effect_label = res$effect_label,
+        n_a = res$n_a,
+        n_b = res$n_b,
+        stringsAsFactors = FALSE
+      )
+    } else {
+      data.frame()
+    }
+    list(mode = "sections", table = tbl, detail = res)
+  })
+
+  output$stats_summary_ui <- renderUI({
+    res <- stats_result()
+    if (is.null(res)) return(NULL)
+
+    if (identical(res$mode, "chi")) {
+      tbl <- res$table
+      if (is.null(tbl) || nrow(tbl) == 0) return(tags$p("Sin resultados (revisa filtros)."))
+      sig_n <- sum(tbl$significant, na.rm = TRUE)
+      tagList(
+        tags$p(tags$strong("Chi² por grado"), ": compara distribución de Nivel I/II/III entre dos años."),
+        tags$p("Grados con cambio significativo (p < 0.05): ", sig_n, " / ", nrow(tbl)),
+        tags$p(class = "text-muted", "Efecto (V de Cramér): 0.1 pequeño, 0.3 mediano, 0.5 grande (regla general).")
+      )
+    } else {
+      det <- res$detail
+      if (!isTRUE(det$ok)) return(tags$p(det$message %||% "Sin resultados."))
+      sig <- if (isTRUE(det$p_value < 0.05)) "Sí" else "No"
+      tagList(
+        tags$p(tags$strong("Comparación de secciones"), ": ", det$test),
+        tags$p("Diferencia (A - B): ", sprintf("%+.1f", det$diff), " p.p.  ·  p = ", signif(det$p_value, 3), "  ·  Significativo: ", sig),
+        tags$p(class = "text-muted", paste0(det$effect_label, ": ", ifelse(is.na(det$effect), "NA", sprintf("%.2f", det$effect))))
+      )
+    }
+  })
+
+  output$table_stats <- renderDT({
+    res <- stats_result()
+    tbl <- res$table %||% data.frame()
+    if (nrow(tbl) == 0) return(datatable(data.frame(Mensaje = "Sin resultados"), rownames = FALSE))
+    datatable(tbl, options = list(pageLength = 15, scrollX = TRUE), rownames = FALSE)
+  })
+
+  # --- Correlación y PCA -----------------------------------------------------
+  output$corr_controls_ui <- renderUI({
+    df <- base_filtered_no_period()
+    validate(need(nrow(df) > 0, "Carga datos para habilitar correlación."))
+
+    years <- sort(unique(df$year))
+    periods <- sort(unique(as.character(df$tipo)))
+
+    tagList(
+      checkboxGroupInput("corr_years", "Años", choices = years, selected = years),
+      checkboxGroupInput("corr_periods", "Periodos", choices = periods, selected = periods),
+      selectInput("corr_method", "Método", choices = c("Pearson" = "pearson", "Spearman" = "spearman"), selected = "pearson")
+    )
+  })
+
+  corr_res <- reactive({
+    df <- base_filtered_no_period()
+    req(input$corr_years, input$corr_periods, input$corr_method)
+    axes_correlation(df, method = input$corr_method, period = input$corr_periods, years = input$corr_years)
+  })
+
+  output$plot_corr <- renderPlotly({
+    res <- corr_res()
+    validate(need(isTRUE(res$ok), res$message %||% "No hay datos para correlación."))
+    gg <- plot_correlation_heatmap(res$cor, res$p, title = "Correlación entre ejes (agregado por curso)")
+    plotly::ggplotly(gg, tooltip = c("x", "y", "fill"))
+  })
+
+  output$dl_corr_csv <- downloadHandler(
+    filename = function() "correlacion_ejes.csv",
+    content = function(file) {
+      res <- corr_res()
+      validate(need(isTRUE(res$ok), "Sin datos para descargar."))
+      utils::write.csv(res$cor, file = file, row.names = TRUE, fileEncoding = "UTF-8")
+    }
+  )
+
+  pca_res <- reactive({
+    pca_axes(corr_res(), scale = TRUE)
+  })
+
+  output$plot_pca_scree <- renderPlotly({
+    res <- pca_res()
+    validate(need(isTRUE(res$ok), res$message %||% "No hay datos para PCA."))
+    gg <- plot_pca_scree(res$fit)
+    plotly::ggplotly(gg, tooltip = c("x", "y"))
+  })
+
+  output$plot_pca_biplot <- renderPlotly({
+    res <- pca_res()
+    validate(need(isTRUE(res$ok), res$message %||% "No hay datos para PCA."))
+    meta <- res$meta
+    meta$grade <- paste0(meta$grade, "°")
+    gg <- plot_pca_biplot(res$fit, meta = meta, color_col = "grade")
+    plotly::ggplotly(gg, tooltip = c("x", "y", "colour"))
+  })
 
   # --- Summary boxes ---------------------------------------------------------
   output$vb_rows <- renderValueBox({
