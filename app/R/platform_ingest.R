@@ -36,9 +36,15 @@ normalize_tipo_dia <- function(tipo_raw) {
   key <- iconv(key, from = "", to = "ASCII//TRANSLIT")
   key <- gsub("[^a-z]+", "", key)
 
+  # Mantener un set pequeño y estable para filtros:
+  # - Diagnóstico
+  # - Monitoreo
+  # - Cierre
+  # - Evaluacion_Cierre (compatibilidad con archivos antiguos)
   if (grepl("diagn", key)) return("Diagnóstico")
-  if (grepl("monitoreo", key) || grepl("intermedio", key)) return("Monitoreo intermedio")
-  if (grepl("cierre", key)) return("Evaluación de cierre")
+  if (grepl("monitoreo", key) || grepl("intermedio", key)) return("Monitoreo")
+  if (grepl("evaluacioncierre", key)) return("Evaluacion_Cierre")
+  if (grepl("cierre", key)) return("Cierre")
 
   tools::toTitleCase(gsub("_", " ", tipo_raw, fixed = TRUE))
 }
@@ -130,6 +136,12 @@ read_dia_platform_xls <- function(path, dataset_name = NULL, skip = 12, original
 load_dia_platform_upload <- function(upload_df, dataset_name = NULL, skip = 12) {
   if (is.null(upload_df) || nrow(upload_df) == 0) {
     stop("No se seleccionaron archivos .xls.", call. = FALSE)
+  }
+
+  keep <- grepl("\\.xls$", upload_df$name, ignore.case = TRUE)
+  upload_df <- upload_df[keep, , drop = FALSE]
+  if (nrow(upload_df) == 0) {
+    stop("No se encontraron archivos .xls en la selección.", call. = FALSE)
   }
 
   files <- as.character(upload_df$datapath)

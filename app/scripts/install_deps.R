@@ -5,15 +5,15 @@
 
 required <- c(
   "shiny",
-  "bslib",
-  "ggplot2",
+  "shinydashboard",
+  "plotly",
+  "DT",
   "readxl",
   "writexl",
-  "zip",
+  "ggplot2",
   "dplyr",
   "tidyr",
-  "scales",
-  "ggridges"
+  "scales"
 )
 
 options(repos = c(CRAN = "https://cloud.r-project.org"))

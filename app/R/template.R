@@ -16,7 +16,7 @@ dia_excel_template_df <- function() {
     `Ciencias de la vida` = "58,33",
     `Ciencias Físicas y Químicas` = "71,25",
     `Ciencias de la Tierra y el Universo` = "64,10",
-    `NIVEL DE LOGRO` = "Adecuado",
+    `NIVEL DE LOGRO` = "Nivel II",
     check.names = FALSE
   )
 }

@@ -14,5 +14,7 @@ En la raíz del repo están:
 - `data_basica.xlsx`
 - `data_med.xlsx`
 
+Los archivos reales de plataforma (por contener datos sensibles) se trabajan localmente en `data_in/` y están ignorados por git.
+
 ## Utilidades Python (scaffold)
 Existe un scaffold inicial en `src/dia_plots/` con un CLI básico (`dia-plots`) para inspección/plots simples.
