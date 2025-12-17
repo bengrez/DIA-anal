@@ -1,14 +1,47 @@
+# ------------------------------------------------------------
+# Presets de configuración (guardar/cargar)
+#
+# Un preset es un archivo `.rds` con el estado de la UI: tipo de gráfico,
+# filtros, facets, estilo, transparencias, etc. La app puede:
+# - Guardar el preset actual
+# - Cargar un preset y aplicarlo gradualmente (para inputs condicionales)
+#
+# Compatibilidad:
+# - v1: `facet` (un solo selector)
+# - v2: `facet_row` + `facet_col`
+# ------------------------------------------------------------
+
+preset_normalize <- function(preset) {
+  # Normaliza presets antiguos para mantener compatibilidad entre versiones.
+  # - v1 usaba `facet` (un solo selector); v2 separa en `facet_row` y `facet_col`.
+  # - Algunos campos pueden venir omitidos en presets guardados por usuarios.
+  if (is.null(preset) || !is.list(preset)) return(NULL)
+
+  if (is.null(preset$facet_row) && !is.null(preset$facet)) {
+    preset$facet_row <- preset$facet
+  }
+  preset$facet_row <- preset$facet_row %||% "off"
+  preset$facet_col <- preset$facet_col %||% "off"
+
+  preset$axis_pool <- preset$axis_pool %||% "common"
+  preset
+}
+
 preset_capture <- function(input) {
+  # Captura el estado actual de la UI para guardarlo como preset.
+  # Se almacena como una lista sencilla (serializable a .rds).
   list(
     version = 2,
     plot_type = input$plot_type %||% "promedio",
     facet_row = input$facet_row %||% "off",
     facet_col = input$facet_col %||% "off",
+    area = input$area %||% NULL,
     curso = input$curso %||% NULL,
     year = input$year %||% NULL,
     tipo = input$tipo %||% NULL,
     fuente = input$fuente %||% NULL,
     eje = input$eje %||% NULL,
+    axis_pool = input$axis_pool %||% NULL,
     tipo_a = input$tipo_a %||% NULL,
     tipo_b = input$tipo_b %||% NULL,
     dist_kind = input$dist_kind %||% NULL,
@@ -38,7 +71,10 @@ preset_capture <- function(input) {
 }
 
 preset_defaults <- function(ch) {
+  # Defaults basados en los valores disponibles en el dataset cargado.
+  # Sirve para inicializar la UI y para "reset" de configuración.
   ch <- ch %||% list()
+  areas <- ch$areas %||% character()
   tipos <- ch$tipos %||% character()
   niveles <- ch$niveles %||% character()
   cursos <- ch$cursos %||% character()
@@ -51,11 +87,13 @@ preset_defaults <- function(ch) {
     plot_type = "promedio",
     facet_row = "off",
     facet_col = "off",
+    area = areas,
     curso = cursos,
     year = years,
     tipo = tipos,
     fuente = fuentes,
     eje = if (length(ejes) > 0) ejes[[1]] else NULL,
+    axis_pool = "common",
     tipo_a = if (length(tipos) > 0) tipos[[1]] else NULL,
     tipo_b = if (length(tipos) > 1) tipos[[2]] else if (length(tipos) > 0) tipos[[1]] else NULL,
     dist_kind = "box",
@@ -85,174 +123,149 @@ preset_defaults <- function(ch) {
 }
 
 preset_is_applied <- function(input, preset) {
-  if (is.null(preset) || !is.list(preset)) return(TRUE)
+  preset <- preset_normalize(preset)
+  if (is.null(preset)) return(TRUE)
 
   eq <- function(a, b) identical(a %||% NULL, b %||% NULL)
 
-  # Siempre presentes
-  if (!eq(input$plot_type, preset$plot_type)) return(FALSE)
-  if (!eq(input$facet_row, preset$facet_row %||% preset$facet %||% "off")) return(FALSE)
-  if (!eq(input$facet_col, preset$facet_col %||% "off")) return(FALSE)
-  if (!eq(input$style_preset, preset$style_preset)) return(FALSE)
-  if (!eq(input$palette_fill, preset$palette_fill)) return(FALSE)
-  if (!eq(input$palette_color, preset$palette_color)) return(FALSE)
-  if (!eq(input$title, preset$title)) return(FALSE)
-  if (!eq(input$subtitle, preset$subtitle)) return(FALSE)
-  if (!eq(input$xlab, preset$xlab)) return(FALSE)
-  if (!eq(input$ylab, preset$ylab)) return(FALSE)
-  if (!eq(input$export_res, preset$export_res)) return(FALSE)
-  if (!eq(input$alpha_bars, preset$alpha_bars)) return(FALSE)
-  if (!eq(input$alpha_lines, preset$alpha_lines)) return(FALSE)
+  # Campos siempre visibles en la UI principal.
+  always <- list(
+    plot_type = preset$plot_type,
+    facet_row = preset$facet_row,
+    facet_col = preset$facet_col,
+    style_preset = preset$style_preset,
+    palette_fill = preset$palette_fill,
+    palette_color = preset$palette_color,
+    title = preset$title,
+    subtitle = preset$subtitle,
+    xlab = preset$xlab,
+    ylab = preset$ylab,
+    export_res = preset$export_res,
+    alpha_bars = preset$alpha_bars,
+    alpha_lines = preset$alpha_lines
+  )
+
+  for (id in names(always)) {
+    if (!eq(input[[id]], always[[id]])) return(FALSE)
+  }
+
   if (!eq(isTRUE(input$anon), isTRUE(preset$anon))) return(FALSE)
 
-  # Estos inputs podrían no existir según UI/condiciones
-  if (!is.null(input$anon_method) && !eq(input$anon_method, preset$anon_method)) return(FALSE)
-  if (!is.null(input$anon_seed) && !eq(input$anon_seed, preset$anon_seed)) return(FALSE)
+  # Campos condicionales: solo se validan si existen en la UI y en el preset.
+  optional <- c(
+    "anon_method",
+    "anon_seed",
+    "fuente",
+    "area",
+    "curso",
+    "year",
+    "tipo",
+    "eje",
+    "axis_pool",
+    "tipo_order",
+    "nivel_order",
+    "dist_kind",
+    "heatmap_dim",
+    "violin_kind",
+    "violin_group",
+    "trend_group",
+    "tipo_a",
+    "tipo_b",
+    "growth_kind",
+    "rank_mode",
+    "rank_n"
+  )
 
-  if (!is.null(input$fuente) && !is.null(preset$fuente) && !eq(input$fuente, preset$fuente)) return(FALSE)
-  if (!is.null(input$curso) && !is.null(preset$curso) && !eq(input$curso, preset$curso)) return(FALSE)
-  if (!is.null(input$year) && !is.null(preset$year) && !eq(input$year, preset$year)) return(FALSE)
-
-  if (!is.null(input$tipo) && !is.null(preset$tipo) && !eq(input$tipo, preset$tipo)) return(FALSE)
-  if (!is.null(input$eje) && !is.null(preset$eje) && !eq(input$eje, preset$eje)) return(FALSE)
-
-  if (!is.null(input$tipo_order) && !is.null(preset$tipo_order) && !eq(input$tipo_order, preset$tipo_order)) return(FALSE)
-  if (!is.null(input$nivel_order) && !is.null(preset$nivel_order) && !eq(input$nivel_order, preset$nivel_order)) return(FALSE)
-
-  if (!is.null(input$dist_kind) && !is.null(preset$dist_kind) && !eq(input$dist_kind, preset$dist_kind)) return(FALSE)
-  if (!is.null(input$heatmap_dim) && !is.null(preset$heatmap_dim) && !eq(input$heatmap_dim, preset$heatmap_dim)) return(FALSE)
-  if (!is.null(input$violin_kind) && !is.null(preset$violin_kind) && !eq(input$violin_kind, preset$violin_kind)) return(FALSE)
-  if (!is.null(input$violin_group) && !is.null(preset$violin_group) && !eq(input$violin_group, preset$violin_group)) return(FALSE)
-  if (!is.null(input$trend_group) && !is.null(preset$trend_group) && !eq(input$trend_group, preset$trend_group)) return(FALSE)
-  if (!is.null(input$tipo_a) && !is.null(preset$tipo_a) && !eq(input$tipo_a, preset$tipo_a)) return(FALSE)
-  if (!is.null(input$tipo_b) && !is.null(preset$tipo_b) && !eq(input$tipo_b, preset$tipo_b)) return(FALSE)
-  if (!is.null(input$growth_kind) && !is.null(preset$growth_kind) && !eq(input$growth_kind, preset$growth_kind)) return(FALSE)
-  if (!is.null(input$rank_mode) && !is.null(preset$rank_mode) && !eq(input$rank_mode, preset$rank_mode)) return(FALSE)
-  if (!is.null(input$rank_n) && !is.null(preset$rank_n) && !eq(input$rank_n, preset$rank_n)) return(FALSE)
+  for (id in optional) {
+    if (!is.null(input[[id]]) && !is.null(preset[[id]]) && !eq(input[[id]], preset[[id]])) return(FALSE)
+  }
 
   TRUE
 }
 
 preset_apply_step <- function(session, input, preset) {
   # Devuelve TRUE cuando "ya intentó aplicar todo lo posible".
-  if (is.null(preset) || !is.list(preset)) return(TRUE)
+  preset <- preset_normalize(preset)
+  if (is.null(preset)) return(TRUE)
 
-  if (!is.null(preset$plot_type) && !identical(input$plot_type, preset$plot_type)) {
-    updateSelectInput(session, "plot_type", selected = preset$plot_type)
+  update_if_changed <- function(id, value, updater, arg_name = "selected", extra = list()) {
+    if (is.null(value)) return(invisible(FALSE))
+    current <- input[[id]]
+    if (is.null(current) || identical(current, value)) return(invisible(FALSE))
+
+    args <- c(list(session = session, inputId = id), setNames(list(value), arg_name), extra)
+    do.call(updater, args)
+    invisible(TRUE)
   }
 
-  if (!is.null(preset$anon) && !identical(isTRUE(input$anon), isTRUE(preset$anon))) {
+  # 1) Forzar estados que habilitan inputs condicionales.
+  update_if_changed("plot_type", preset$plot_type, updateSelectInput, "selected")
+  if (!identical(isTRUE(input$anon), isTRUE(preset$anon))) {
     updateCheckboxInput(session, "anon", value = isTRUE(preset$anon))
   }
-  if (!is.null(preset$anon_method) && !is.null(input$anon_method) && !identical(input$anon_method, preset$anon_method)) {
-    updateSelectInput(session, "anon_method", selected = preset$anon_method)
-  }
-  if (!is.null(preset$anon_seed) && !is.null(input$anon_seed) && !identical(input$anon_seed, preset$anon_seed)) {
-    updateNumericInput(session, "anon_seed", value = preset$anon_seed)
+
+  # 2) Filtros y opciones generales (si existen en la UI).
+  select_ids <- c(
+    "fuente",
+    "area",
+    "curso",
+    "year",
+    "tipo",
+    "eje",
+    "heatmap_dim",
+    "violin_group",
+    "trend_group",
+    "tipo_a",
+    "tipo_b",
+    "facet_row",
+    "facet_col",
+    "style_preset",
+    "palette_fill",
+    "palette_color",
+    "export_res",
+    "anon_method"
+  )
+  for (id in select_ids) {
+    update_if_changed(id, preset[[id]], updateSelectInput, "selected")
   }
 
-  # Filtros (si existen)
-  if (!is.null(preset$fuente) && !is.null(input$fuente) && !identical(input$fuente, preset$fuente)) {
-    updateSelectInput(session, "fuente", selected = preset$fuente)
-  }
-  if (!is.null(preset$curso) && !is.null(input$curso) && !identical(input$curso, preset$curso)) {
-    updateSelectInput(session, "curso", selected = preset$curso)
-  }
-  if (!is.null(preset$year) && !is.null(input$year) && !identical(input$year, preset$year)) {
-    updateSelectInput(session, "year", selected = preset$year)
-  }
-  if (!is.null(preset$tipo) && !is.null(input$tipo) && !identical(input$tipo, preset$tipo)) {
-    updateSelectInput(session, "tipo", selected = preset$tipo)
-  }
-  if (!is.null(preset$eje) && !is.null(input$eje) && !identical(input$eje, preset$eje)) {
-    updateSelectInput(session, "eje", selected = preset$eje)
+  radio_ids <- c("axis_pool", "dist_kind", "violin_kind", "growth_kind", "rank_mode")
+  for (id in radio_ids) {
+    update_if_changed(id, preset[[id]], updateRadioButtons, "selected")
   }
 
-  # Orden de factores (selectize)
-  if (!is.null(preset$tipo_order) && !is.null(input$tipo_order) && !identical(input$tipo_order, preset$tipo_order)) {
-    updateSelectizeInput(session, "tipo_order", selected = preset$tipo_order, server = TRUE)
+  if (!is.null(preset$anon_seed)) update_if_changed("anon_seed", preset$anon_seed, updateNumericInput, "value")
+  if (!is.null(preset$rank_n)) update_if_changed("rank_n", preset$rank_n, updateNumericInput, "value")
+
+  if (!is.null(preset$tipo_order)) {
+    update_if_changed("tipo_order", preset$tipo_order, updateSelectizeInput, "selected", extra = list(server = TRUE))
   }
-  if (!is.null(preset$nivel_order) && !is.null(input$nivel_order) && !identical(input$nivel_order, preset$nivel_order)) {
-    updateSelectizeInput(session, "nivel_order", selected = preset$nivel_order, server = TRUE)
+  if (!is.null(preset$nivel_order)) {
+    update_if_changed("nivel_order", preset$nivel_order, updateSelectizeInput, "selected", extra = list(server = TRUE))
   }
 
-  # Opciones por tipo de gráfico (condicionales)
-  if (!is.null(preset$dist_kind) && !is.null(input$dist_kind) && !identical(input$dist_kind, preset$dist_kind)) {
-    updateRadioButtons(session, "dist_kind", selected = preset$dist_kind)
-  }
-  if (!is.null(preset$heatmap_dim) && !is.null(input$heatmap_dim) && !identical(input$heatmap_dim, preset$heatmap_dim)) {
-    updateSelectInput(session, "heatmap_dim", selected = preset$heatmap_dim)
-  }
-  if (!is.null(preset$violin_kind) && !is.null(input$violin_kind) && !identical(input$violin_kind, preset$violin_kind)) {
-    updateRadioButtons(session, "violin_kind", selected = preset$violin_kind)
-  }
-  if (!is.null(preset$violin_group) && !is.null(input$violin_group) && !identical(input$violin_group, preset$violin_group)) {
-    updateSelectInput(session, "violin_group", selected = preset$violin_group)
-  }
-  if (!is.null(preset$trend_group) && !is.null(input$trend_group) && !identical(input$trend_group, preset$trend_group)) {
-    updateSelectInput(session, "trend_group", selected = preset$trend_group)
-  }
-  if (!is.null(preset$tipo_a) && !is.null(input$tipo_a) && !identical(input$tipo_a, preset$tipo_a)) {
-    updateSelectInput(session, "tipo_a", selected = preset$tipo_a)
-  }
-  if (!is.null(preset$tipo_b) && !is.null(input$tipo_b) && !identical(input$tipo_b, preset$tipo_b)) {
-    updateSelectInput(session, "tipo_b", selected = preset$tipo_b)
-  }
-  if (!is.null(preset$growth_kind) && !is.null(input$growth_kind) && !identical(input$growth_kind, preset$growth_kind)) {
-    updateRadioButtons(session, "growth_kind", selected = preset$growth_kind)
-  }
-  if (!is.null(preset$rank_mode) && !is.null(input$rank_mode) && !identical(input$rank_mode, preset$rank_mode)) {
-    updateRadioButtons(session, "rank_mode", selected = preset$rank_mode)
-  }
-  if (!is.null(preset$rank_n) && !is.null(input$rank_n) && !identical(input$rank_n, preset$rank_n)) {
-    updateNumericInput(session, "rank_n", value = preset$rank_n)
-  }
+  update_if_changed("title", preset$title, updateTextInput, "value")
+  update_if_changed("subtitle", preset$subtitle, updateTextInput, "value")
+  update_if_changed("xlab", preset$xlab, updateTextInput, "value")
+  update_if_changed("ylab", preset$ylab, updateTextInput, "value")
 
-  # Estilo
+  if (!is.null(preset$alpha_bars)) update_if_changed("alpha_bars", preset$alpha_bars, updateSliderInput, "value")
+  if (!is.null(preset$alpha_lines)) update_if_changed("alpha_lines", preset$alpha_lines, updateSliderInput, "value")
+
+  TRUE
+}
+preset_normalize <- function(preset) {
+  # Normaliza presets antiguos para mantener compatibilidad entre versiones.
+  # - v1 usaba `facet` (un solo selector); v2 separa en `facet_row` y `facet_col`.
+  # - Algunos campos pueden venir omitidos en presets guardados por usuarios.
+  if (is.null(preset) || !is.list(preset)) return(NULL)
+
   if (is.null(preset$facet_row) && !is.null(preset$facet)) {
     preset$facet_row <- preset$facet
   }
-  if (is.null(preset$facet_col)) {
-    preset$facet_col <- "off"
-  }
-  if (!is.null(preset$facet_row) && !is.null(input$facet_row) && !identical(input$facet_row, preset$facet_row)) {
-    updateSelectInput(session, "facet_row", selected = preset$facet_row)
-  }
-  if (!is.null(preset$facet_col) && !is.null(input$facet_col) && !identical(input$facet_col, preset$facet_col)) {
-    updateSelectInput(session, "facet_col", selected = preset$facet_col)
-  }
-  if (!is.null(preset$style_preset) && !identical(input$style_preset, preset$style_preset)) {
-    updateSelectInput(session, "style_preset", selected = preset$style_preset)
-  }
-  if (!is.null(preset$palette_fill) && !identical(input$palette_fill, preset$palette_fill)) {
-    updateSelectInput(session, "palette_fill", selected = preset$palette_fill)
-  }
-  if (!is.null(preset$palette_color) && !identical(input$palette_color, preset$palette_color)) {
-    updateSelectInput(session, "palette_color", selected = preset$palette_color)
-  }
+  preset$facet_row <- preset$facet_row %||% "off"
+  preset$facet_col <- preset$facet_col %||% "off"
 
-  if (!is.null(preset$title) && !identical(input$title, preset$title)) {
-    updateTextInput(session, "title", value = preset$title)
-  }
-  if (!is.null(preset$subtitle) && !identical(input$subtitle, preset$subtitle)) {
-    updateTextInput(session, "subtitle", value = preset$subtitle)
-  }
-  if (!is.null(preset$xlab) && !identical(input$xlab, preset$xlab)) {
-    updateTextInput(session, "xlab", value = preset$xlab)
-  }
-  if (!is.null(preset$ylab) && !identical(input$ylab, preset$ylab)) {
-    updateTextInput(session, "ylab", value = preset$ylab)
-  }
-
-  if (!is.null(preset$export_res) && !identical(input$export_res, preset$export_res)) {
-    updateSelectInput(session, "export_res", selected = preset$export_res)
-  }
-  if (!is.null(preset$alpha_bars) && !identical(input$alpha_bars, preset$alpha_bars)) {
-    updateSliderInput(session, "alpha_bars", value = preset$alpha_bars)
-  }
-  if (!is.null(preset$alpha_lines) && !identical(input$alpha_lines, preset$alpha_lines)) {
-    updateSliderInput(session, "alpha_lines", value = preset$alpha_lines)
-  }
-
-  TRUE
+  preset$axis_pool <- preset$axis_pool %||% "common"
+  preset
 }

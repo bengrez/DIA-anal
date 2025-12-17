@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot extra — Violín / Ridgeline
+#
+# Alternativa visual para distribución por curso o tipo, útil para
+# comparar formas de distribución sin depender solo de boxplot.
+# ------------------------------------------------------------
+
 plot_violin <- function(
     df,
     ejes,
@@ -18,7 +25,7 @@ plot_violin <- function(
   kind <- match.arg(kind, c("violin", "ridge"))
 
   df_plot <- df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor")
 
   group_levels <- if (is.factor(df_plot[[group_var]])) {

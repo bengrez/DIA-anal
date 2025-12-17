@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot extra — Tendencia temporal (por año)
+#
+# Línea con promedio por año para comparar evolución a lo largo del tiempo.
+# Se puede agrupar por curso o tipo.
+# ------------------------------------------------------------
+
 plot_tendencia <- function(
     df,
     ejes,
@@ -15,9 +22,9 @@ plot_tendencia <- function(
   group_var <- match.arg(group_var, c("curso", "tipo"))
 
   df_long <- df %>%
-    select(year, curso, tipo, all_of(ejes)) %>%
+    select(year, area, curso, tipo, all_of(ejes)) %>%
     tidyr::pivot_longer(cols = all_of(ejes), names_to = "eje", values_to = "valor") %>%
-    group_by(.data$year, .data[[group_var]], .data$eje) %>%
+    group_by(.data$year, .data$area, .data[[group_var]], .data$eje) %>%
     summarise(valor = mean(.data$valor, na.rm = TRUE), .groups = "drop") %>%
     mutate(year = as.integer(.data$year))
 

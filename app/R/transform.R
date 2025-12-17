@@ -1,3 +1,12 @@
+# ------------------------------------------------------------
+# Transformaciones (anonimización, pivots, deltas)
+#
+# Este módulo opera sobre el data.frame ya normalizado por `ingest.R`:
+# - apply_anonymity(): reemplaza nombres por IDs (n_lista o aleatorio estable)
+# - pivot_axes_long(): pasa ejes a formato largo para ggplot/tablas
+# - calc_delta_por_estudiante(): calcula valor_A/valor_B/delta entre dos Tipos
+# ------------------------------------------------------------
+
 apply_anonymity <- function(df, anonymous = FALSE, method = "n_lista", seed = 1234) {
   if (!isTRUE(anonymous)) {
     return(df)
@@ -58,11 +67,12 @@ calc_delta_por_estudiante <- function(df, eje, tipo_a, tipo_b) {
     stop("Eje inválido: ", eje, call. = FALSE)
   }
 
-df2 <- df %>%
+  df2 <- df %>%
     filter(.data$tipo %in% c(tipo_a, tipo_b)) %>%
     transmute(
       fuente = .data$fuente,
       year = .data$year,
+      area = .data$area,
       curso = .data$curso,
       n_lista = .data$n_lista,
       nombre_estudiante = .data$nombre_estudiante,
@@ -79,7 +89,7 @@ df2 <- df %>%
     filter(!is.na(.data$tipo_comp))
 
   df_wide <- df2 %>%
-    group_by(.data$fuente, .data$year, .data$curso, .data$n_lista, .data$nombre_estudiante, .data$tipo_comp) %>%
+    group_by(.data$fuente, .data$year, .data$area, .data$curso, .data$n_lista, .data$nombre_estudiante, .data$tipo_comp) %>%
     summarise(valor = mean(.data$valor, na.rm = TRUE), .groups = "drop") %>%
     tidyr::pivot_wider(names_from = "tipo_comp", values_from = "valor") %>%
     rename(valor_A = A, valor_B = B) %>%

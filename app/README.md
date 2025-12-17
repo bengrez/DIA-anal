@@ -15,6 +15,32 @@ Opcional: instalar dependencias desde consola:
 ## Plantilla Excel
 En la app puedes descargar una plantilla `.xlsx` con encabezados requeridos y una fila de ejemplo (Juanito Juanete): botón **Descargar plantilla Excel** en la sección de carga.
 
+## Carga masiva desde carpeta (DIA plataforma .xls)
+Si tienes muchos archivos `.xls` exportados desde la plataforma (por curso y área), usa:
+- **Origen de datos** → *Carpeta DIA plataforma (.xls)*  
+- Usa **Seleccionar carpeta…** y luego presiona **Cargar carpeta**.
+- La selección usa el diálogo nativo del navegador (Chrome/Edge/Electron). Si no aparece opción de “carpeta”, abre la carpeta y selecciona todos los `.xls` (Ctrl+A).
+
+La app asume:
+- Una sola hoja por archivo.
+- Las primeras 12 filas son informativas; la tabla comienza en la fila 13 (encabezados en la fila 13).
+
+### Contexto desde el nombre de archivo
+La app infiere automáticamente:
+- `RBD` (ej. `RBD12775`)
+- `Área` (ej. `LECTURA`, `MATEMATICA`)
+- `Curso` (ej. `2_A`, `II_B`)
+- `Tipo DIA` (Diagnóstico / Monitoreo intermedio / Evaluación de cierre)
+- `Año` (ej. `2025`)
+
+Ejemplos:
+- `RBD12775_DIA_LECTURA_II_B (HC-310)_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
+- `RBD12775_DIA_MATEMATICA_2_A_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
+
+### Comparar áreas con ejes distintos
+Cuando las áreas tienen ejes/ámbitos diferentes, la app agrega un eje sintético:
+- `Promedio (todos los ejes)` (promedio por estudiante de los ejes disponibles en ese archivo).
+
 ## Contrato de datos (Excel .xlsx)
 Columnas requeridas (se aceptan variaciones menores de mayúsculas/guiones bajos):
 - `Year` (numérico)
@@ -34,6 +60,8 @@ A) Promedio por curso y Tipo (barras, eje seleccionable)
 B) Distribución (boxplot o histograma, por curso, eje seleccionable)  
 C) Nivel de logro (barras apiladas proporcionales, por curso y Tipo)  
 D) Crecimiento por estudiante (delta o slope chart, compara 2 Tipos)
+
+Tip: para comparar múltiples **Áreas** en un mismo análisis, usa **Facets por Área** (fila o columna).
 
 ## Herramientas extra (tabs)
 - **Tablas**: tabla derivada del gráfico actual (preview + descarga CSV/XLSX).

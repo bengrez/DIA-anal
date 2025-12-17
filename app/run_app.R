@@ -1,3 +1,8 @@
+# Entrypoint para ejecutar la app Shiny con parámetros estables.
+#
+# Evita `port=0` (que en algunos entornos muestra 127.0.0.1:0) y permite
+# configurar el puerto con `DIA_PORT` (por defecto 3838).
+
 args <- commandArgs(trailingOnly = TRUE)
 script_file <- sub("^--file=", "", commandArgs()[grep("^--file=", commandArgs())][1])
 app_dir <- normalizePath(dirname(script_file), winslash = "/", mustWork = TRUE)

@@ -1,3 +1,11 @@
+# Smoke test rápido (sin Shiny)
+#
+# Ejecuta las funciones principales sobre `data_basica.xlsx` y genera PNGs en
+# `tmp_smoke/`. Sirve para detectar errores de importación/plots sin abrir la app.
+#
+# Uso:
+#   C:\Program Files\R\R-4.4.2\bin\Rscript.exe app/scripts/smoke_test.R
+
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 script_file <- sub("^--file=", "", commandArgs()[grep("^--file=", commandArgs())][1])

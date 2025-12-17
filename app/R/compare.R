@@ -1,3 +1,14 @@
+# ------------------------------------------------------------
+# Comparación entre fuentes (Archivo 1 vs Archivo 2)
+#
+# Cuando se cargan 2 archivos en modo .xlsx, la app puede comparar
+# promedios y deltas por curso/tipo/año para un eje seleccionado.
+#
+# Funciones clave:
+# - compare_means(): tabla wide con promedios + delta
+# - plot_compare(): ggplot para visualizar comparación
+# ------------------------------------------------------------
+
 compare_means <- function(df, eje, fuente_a, fuente_b) {
   if (is.null(fuente_a) || is.null(fuente_b) || !nzchar(fuente_a) || !nzchar(fuente_b)) {
     stop("Selecciona Fuente A y Fuente B.", call. = FALSE)
@@ -69,4 +80,3 @@ plot_compare <- function(df_compare, fuente_a, fuente_b, view = "delta", facet =
 
   p
 }
-
