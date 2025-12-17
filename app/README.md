@@ -27,12 +27,14 @@ La app infiere automáticamente:
 - `RBD` (ej. `12775`)
 - Área (ej. `Ciencias Naturales`)
 - `Curso` (ej. `5_A`, `6_B`)
-- `Periodo/Tipo DIA` (`Diagnóstico`, `Monitoreo`, `Cierre`, `Evaluacion_Cierre`)
+- `Periodo/Tipo DIA` (`Diagnóstico`, `Monitoreo`, `Cierre`)
 - `Año` (ej. `2025`)
 
 Ejemplos:
 - `RBD12775_DIA_CIENCIAS NATURALES_5_A_Resultados_de_estudiantes_Equipo_docente_Monitoreo_2025.xls`
 - `RBD12775_DIA_CIENCIAS NATURALES_5_A_Resultados_de_estudiantes_Equipo_docente_Evaluacion_Cierre_2023.xls`
+
+Nota: `Evaluacion_Cierre` se considera equivalente a `Cierre` en la app.
 
 ## Qué gráficos incluye (versión actual)
 - **Distribución por nivel de logro** (Nivel I/II/III) con línea de referencia 60%.

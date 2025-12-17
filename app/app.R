@@ -192,8 +192,17 @@ ui <- dashboardPage(
             fluidRow(
               column(2, downloadButton("dl_levels_png", "PNG")),
               column(2, downloadButton("dl_levels_csv", "CSV"))
-            ),
-            br(),
+            )
+          )
+        ),
+        fluidRow(
+          box(
+            width = 12,
+            title = "Datos (tabla)",
+            status = "info",
+            solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
             DTOutput("table_levels")
           )
         )
@@ -242,6 +251,8 @@ ui <- dashboardPage(
             title = "Tabla: ejes por curso",
             status = "info",
             solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
             DTOutput("table_axes")
           )
         )
@@ -290,6 +301,8 @@ ui <- dashboardPage(
             title = "Tablas YoY",
             status = "info",
             solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
             tabsetPanel(
               tabPanel("Niveles", DTOutput("table_yoy_levels")),
               tabPanel("Ejes", DTOutput("table_yoy_axes"))
@@ -314,6 +327,8 @@ ui <- dashboardPage(
             title = "Archivos importados",
             status = "info",
             solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
             DTOutput("table_manifest")
           )
         ),
@@ -323,6 +338,8 @@ ui <- dashboardPage(
             title = "Vista previa (datos filtrados)",
             status = "info",
             solidHeader = TRUE,
+            collapsible = TRUE,
+            collapsed = TRUE,
             numericInput("preview_n", "Filas a mostrar", value = 50, min = 10, max = 500, step = 10),
             DTOutput("table_preview")
           )
@@ -432,12 +449,9 @@ server <- function(input, output, session) {
     df <- st$data
     years <- sort(unique(df$year))
     periods_raw <- unique(as.character(df$tipo))
-    known <- c("Diagnóstico", "Monitoreo", "Cierre", "Evaluacion_Cierre")
+    known <- c("Diagnóstico", "Monitoreo", "Cierre")
     periods <- c(intersect(known, periods_raw), setdiff(periods_raw, known))
     period_choices <- setNames(periods, periods)
-    if ("Evaluacion_Cierre" %in% period_choices) {
-      names(period_choices)[period_choices == "Evaluacion_Cierre"] <- "Evaluación de cierre"
-    }
 
     parts <- course_parts(df$curso)
     grades <- sort(unique(parts$grade[!is.na(parts$grade)]))

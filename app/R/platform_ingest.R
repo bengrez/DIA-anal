@@ -36,15 +36,16 @@ normalize_tipo_dia <- function(tipo_raw) {
   key <- iconv(key, from = "", to = "ASCII//TRANSLIT")
   key <- gsub("[^a-z]+", "", key)
 
-  # Mantener un set pequeño y estable para filtros:
+  # Set estable para filtros:
   # - Diagnóstico
   # - Monitoreo
   # - Cierre
-  # - Evaluacion_Cierre (compatibilidad con archivos antiguos)
+  #
+  # Nota: la plataforma usa variantes como "Evaluacion_Cierre". Para el análisis
+  # actual se consideran equivalentes a "Cierre".
   if (grepl("diagn", key)) return("Diagnóstico")
   if (grepl("monitoreo", key) || grepl("intermedio", key)) return("Monitoreo")
-  if (grepl("evaluacioncierre", key)) return("Evaluacion_Cierre")
-  if (grepl("cierre", key)) return("Cierre")
+  if (grepl("evaluacioncierre", key) || grepl("cierre", key)) return("Cierre")
 
   tools::toTitleCase(gsub("_", " ", tipo_raw, fixed = TRUE))
 }
