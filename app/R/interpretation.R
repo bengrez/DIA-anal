@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Texto sugerido para informe (interpretación)
+#
+# Genera bullets cortos en español para que docentes puedan copiar/pegar
+# en informes. Se basa en el tipo de gráfico y el "scope" (año/curso/tipo/eje).
+# ------------------------------------------------------------
+
 interpretation_points <- function(
     plot_type,
     ejes = NULL,

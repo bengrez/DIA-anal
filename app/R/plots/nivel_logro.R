@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot C — Nivel de logro
+#
+# Barras apiladas al 100% (proporciones) por `NIVEL DE LOGRO`.
+# Útil para reportar distribución de niveles por curso/tipo/año/área.
+# ------------------------------------------------------------
+
 plot_nivel_logro <- function(df, facet_row, facet_col, palette_fill, alpha_bars, plot_theme) {
   df_count <- df %>%
     mutate(nivel_logro_chr = as.character(.data$nivel_logro)) %>%

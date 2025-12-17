@@ -1,3 +1,15 @@
+# ------------------------------------------------------------
+# Calidad de datos
+#
+# Checks rápidos para detectar problemas comunes:
+# - % de missing por eje
+# - valores fuera de rango (0–100)
+# - duplicados por llave (fuente/año/área/curso/tipo/n_lista)
+#
+# Se muestran en la pestaña "Calidad de datos" para que docentes puedan
+# identificar inconsistencias antes de exportar gráficos.
+# ------------------------------------------------------------
+
 quality_axes_missing <- function(df) {
   axes <- detect_axes(df)
   if (length(axes) == 0) return(data.frame())

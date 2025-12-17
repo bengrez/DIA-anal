@@ -1,3 +1,15 @@
+# ------------------------------------------------------------
+# Plot D — Crecimiento por estudiante (delta)
+#
+# Compara dos "Tipos" (A vs B) para un eje y calcula:
+# - valor_A, valor_B
+# - delta = valor_B - valor_A
+#
+# Visualización:
+# - Delta (barras) o slope chart
+# - Opcional: top/bottom N estudiantes
+# ------------------------------------------------------------
+
 plot_crecimiento <- function(
     df,
     eje,

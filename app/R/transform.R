@@ -1,3 +1,12 @@
+# ------------------------------------------------------------
+# Transformaciones (anonimización, pivots, deltas)
+#
+# Este módulo opera sobre el data.frame ya normalizado por `ingest.R`:
+# - apply_anonymity(): reemplaza nombres por IDs (n_lista o aleatorio estable)
+# - pivot_axes_long(): pasa ejes a formato largo para ggplot/tablas
+# - calc_delta_por_estudiante(): calcula valor_A/valor_B/delta entre dos Tipos
+# ------------------------------------------------------------
+
 apply_anonymity <- function(df, anonymous = FALSE, method = "n_lista", seed = 1234) {
   if (!isTRUE(anonymous)) {
     return(df)
@@ -58,7 +67,7 @@ calc_delta_por_estudiante <- function(df, eje, tipo_a, tipo_b) {
     stop("Eje inválido: ", eje, call. = FALSE)
   }
 
-df2 <- df %>%
+  df2 <- df %>%
     filter(.data$tipo %in% c(tipo_a, tipo_b)) %>%
     transmute(
       fuente = .data$fuente,

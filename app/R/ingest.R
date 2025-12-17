@@ -1,3 +1,19 @@
+# ------------------------------------------------------------
+# Ingesta y normalización de datos DIA
+#
+# Este módulo define el "contrato" interno de la app:
+# - Detecta columnas requeridas (con tolerancia a variaciones de nombre)
+# - Convierte porcentajes (coma decimal, strings, %)
+# - Inserta metadata (año/tipo/curso/área/RBD) cuando viene desde el filename
+# - Agrega un eje sintético "Promedio (todos los ejes)" para comparaciones multi-área
+#
+# Funciones clave:
+# - read_dia_excel(): lee .xlsx (formato plantilla) y normaliza columnas
+# - canonicalize_and_clean(): renombra, tipa y limpia un data.frame crudo
+# - validate_dia_data(): valida el contrato interno (ver más abajo)
+# - apply_anonymity(): anonimizador (n_lista / random estable)
+# ------------------------------------------------------------
+
 `%||%` <- function(x, y) if (is.null(x)) y else x
 
 excel_sheets_safe <- function(path) {

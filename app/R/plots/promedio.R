@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot A — Promedio por curso y tipo
+#
+# Barras agrupadas por `Curso` con `fill = Tipo`, para uno o más ejes.
+# Retorna un objeto ggplot listo para faceting y exportación.
+# ------------------------------------------------------------
+
 plot_promedio <- function(df, ejes, facet_row, facet_col, palette_fill, alpha_bars, plot_theme) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {

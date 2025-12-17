@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot extra — Tendencia temporal (por año)
+#
+# Línea con promedio por año para comparar evolución a lo largo del tiempo.
+# Se puede agrupar por curso o tipo.
+# ------------------------------------------------------------
+
 plot_tendencia <- function(
     df,
     ejes,

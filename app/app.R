@@ -1,6 +1,8 @@
 ## App Shiny (MVP) para gráficos DIA
 ## UI en español, datos locales, exportación PNG.
 
+# --- Dependencias (CRAN) -----------------------------------------------------
+# Se valida al inicio para entregar mensajes amigables a usuarios no técnicos.
 required_packages <- c(
   "shiny",
   "bslib",
@@ -30,6 +32,9 @@ library(ggplot2)
 library(dplyr)
 library(tidyr)
 
+# --- Módulos internos --------------------------------------------------------
+# Se cargan como scripts sueltos (no es un paquete R) para facilitar el
+# desarrollo y el empaquetado como app de escritorio.
 source(file.path("R", "ingest.R"))
 source(file.path("R", "platform_ingest.R"))
 source(file.path("R", "assistant.R"))
@@ -52,6 +57,10 @@ source(file.path("R", "plots", "crecimiento.R"))
 
 options(shiny.maxRequestSize = 100 * 1024^2) # 100 MB
 
+# --- UI ----------------------------------------------------------------------
+# Nota: el selector de carpeta usa el diálogo nativo del navegador. Para poder
+# elegir carpeta (y no solo archivos) activamos el atributo `webkitdirectory`
+# en el `<input type=file>`. Esto funciona bien en Chrome/Edge/Electron.
 ui <- tagList(
   tags$head(
     tags$style(
@@ -339,6 +348,9 @@ ui <- tagList(
 )
 )
 
+# --- Server ------------------------------------------------------------------
+# Contiene toda la lógica reactiva: carga de datos, filtros, gráficos,
+# tablas, calidad y exportación.
 server <- function(input, output, session) {
   # Recomendación para empaquetado tipo RInno/Electron:
   # asegurar que al cerrar la ventana se termine la sesión de R.

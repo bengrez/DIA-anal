@@ -1,3 +1,17 @@
+# ------------------------------------------------------------
+# Importación desde plataforma DIA (.xls)
+#
+# Los reportes descargados desde la plataforma suelen venir como `.xls` y con
+# filas informativas al inicio. La app asume:
+# - Primera hoja
+# - 12 filas iniciales irrelevantes; la tabla comienza en la fila 13
+#
+# Este módulo:
+# - Infieren metadata desde el nombre del archivo (RBD, Área, Curso, Tipo DIA, Año)
+# - Lee el `.xls` y lo transforma al contrato interno via `canonicalize_and_clean()`
+# - Soporta carga masiva vía `fileInput()` (con `datapath` temporal + `name` real)
+# ------------------------------------------------------------
+
 re_capture <- function(pattern, x, ignore_case = FALSE) {
   m <- regexec(pattern, x, ignore.case = ignore_case, perl = TRUE)
   hit <- regmatches(x, m)[[1]]
@@ -32,7 +46,7 @@ parse_dia_platform_filename <- function(path) {
   rbd <- re_capture("RBD\\s*(\\d+)", no_ext, ignore_case = TRUE)
 
   # Extrae el bloque entre "_DIA_" y "_Resultados_de_estudiantes" para
-  # identificar correctamente Ãrea y Curso (evitando capturar "12775_D").
+  # identificar correctamente Área y Curso (evitando capturar "12775_D").
   dia_block <- re_capture("_DIA_(.+?)_Resultados_de_estudiantes", no_ext, ignore_case = TRUE)
   course_pattern <- "(?:\\d+|[IVX]+)_[A-Za-z]"
   course_match <- if (!is.na(dia_block) && nzchar(dia_block)) {
@@ -106,63 +120,6 @@ read_dia_platform_xls <- function(path, dataset_name = NULL, skip = 12, original
       hc = meta$hc,
       source_file = basename(original_name %||% meta$source_file)
     )
-  )
-}
-
-load_dia_platform_folder <- function(folder_path, recursive = FALSE, dataset_name = NULL) {
-  folder_path <- normalizePath(folder_path, winslash = "/", mustWork = TRUE)
-  if (is.null(dataset_name) || !nzchar(dataset_name)) {
-    dataset_name <- paste0("Carpeta: ", basename(folder_path))
-  }
-
-  files <- list.files(folder_path, pattern = "\\.xls$", full.names = TRUE, recursive = isTRUE(recursive))
-  files <- sort(files)
-  if (length(files) == 0) {
-    stop("No se encontraron archivos .xls en: ", folder_path, call. = FALSE)
-  }
-
-  manifest <- lapply(files, function(f) {
-    meta <- parse_dia_platform_filename(f)
-    data.frame(
-      file = basename(f),
-      area = meta$area,
-      curso = meta$curso,
-      tipo = meta$tipo,
-      year = meta$year,
-      rbd = meta$rbd,
-      hc = meta$hc,
-      stringsAsFactors = FALSE
-    )
-  })
-  manifest <- do.call(rbind, manifest)
-
-  dfs <- vector("list", length(files))
-  status <- rep("ok", length(files))
-  message <- rep("", length(files))
-
-  for (i in seq_along(files)) {
-    f <- files[[i]]
-    dfs[[i]] <- tryCatch(
-      read_dia_platform_xls(f, dataset_name = dataset_name, skip = 12),
-      error = function(e) {
-        status[[i]] <<- "error"
-        message[[i]] <<- e$message
-        NULL
-      }
-    )
-  }
-
-  manifest$status <- status
-  manifest$message <- message
-
-  ok <- vapply(dfs, function(x) !is.null(x) && nrow(x) > 0, logical(1))
-  df_all <- dplyr::bind_rows(dfs[ok])
-
-  list(
-    folder = folder_path,
-    dataset_name = dataset_name,
-    data = df_all,
-    manifest = manifest
   )
 }
 

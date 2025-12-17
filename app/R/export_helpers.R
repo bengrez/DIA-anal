@@ -1,3 +1,11 @@
+# ------------------------------------------------------------
+# Helpers de exportación (HTML / texto)
+#
+# Utilidades pequeñas para:
+# - Renderizar tablas como HTML (para mostrar en la app)
+# - Escribir archivos de texto en UTF-8 sin problemas de encoding
+# ------------------------------------------------------------
+
 html_escape <- function(x) {
   x <- as.character(x %||% "")
   x <- gsub("&", "&amp;", x, fixed = TRUE)
@@ -32,4 +40,3 @@ write_text_file <- function(path, text) {
   on.exit(close(con), add = TRUE)
   writeBin(charToRaw(enc2utf8(text)), con)
 }
-

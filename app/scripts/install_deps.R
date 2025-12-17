@@ -1,3 +1,8 @@
+# Instalador de dependencias CRAN para la app.
+#
+# Se ejecuta desde `run_app.bat` antes de iniciar Shiny.
+# La idea es que el usuario (docente) no tenga que instalar paquetes manualmente.
+
 required <- c(
   "shiny",
   "bslib",

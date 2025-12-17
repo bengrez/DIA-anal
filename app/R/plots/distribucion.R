@@ -1,3 +1,11 @@
+# ------------------------------------------------------------
+# Plot B — Distribución (boxplot / histograma)
+#
+# Permite ver variabilidad por curso/tipo para uno o más ejes:
+# - Boxplot (por curso)
+# - Histograma con curva de densidad (por tipo)
+# ------------------------------------------------------------
+
 plot_distribucion <- function(df, ejes, kind, facet_row, facet_col, palette_fill, palette_color, alpha_bars, alpha_lines, plot_theme) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {

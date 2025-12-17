@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot extra — Violín / Ridgeline
+#
+# Alternativa visual para distribución por curso o tipo, útil para
+# comparar formas de distribución sin depender solo de boxplot.
+# ------------------------------------------------------------
+
 plot_violin <- function(
     df,
     ejes,

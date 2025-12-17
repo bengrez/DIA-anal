@@ -1,3 +1,12 @@
+# ------------------------------------------------------------
+# Tablas (para descargar CSV/XLSX)
+#
+# Cada tabla corresponde a un tipo de gráfico y expone:
+# - métricas agregadas (promedio, mediana, percentiles, etc.)
+# - conteos y proporciones (nivel de logro)
+# - deltas por estudiante (crecimiento)
+# ------------------------------------------------------------
+
 table_promedio <- function(df, ejes) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {

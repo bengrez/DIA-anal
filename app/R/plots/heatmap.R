@@ -1,3 +1,10 @@
+# ------------------------------------------------------------
+# Plot extra — Heatmap (curso/tipo × eje)
+#
+# Útil cuando hay muchos ejes y se quiere ver un "mapa" de promedios.
+# (No es parte del MVP original, pero se mantiene por utilidad.)
+# ------------------------------------------------------------
+
 plot_heatmap <- function(df, ejes, facet_row, facet_col, axis_dim = "curso", palette_fill, plot_theme) {
   ejes <- unique(as.character(ejes %||% character()))
   if (length(ejes) == 0) {

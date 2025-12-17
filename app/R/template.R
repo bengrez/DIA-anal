@@ -1,3 +1,11 @@
+# ------------------------------------------------------------
+# Plantilla Excel (formato .xlsx de la app)
+#
+# Permite generar un archivo de ejemplo con:
+# - Encabezados requeridos por la app
+# - Una fila ficticia (Juanito Juanete) para orientar a docentes
+# ------------------------------------------------------------
+
 dia_excel_template_df <- function() {
   data.frame(
     Year = 2025,
@@ -20,4 +28,3 @@ write_dia_excel_template <- function(path) {
   df <- dia_excel_template_df()
   writexl::write_xlsx(list(Datos = df), path = path)
 }
-

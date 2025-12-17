@@ -1,3 +1,15 @@
+# ------------------------------------------------------------
+# Asistente (preguntas Sí/No)
+#
+# Este módulo implementa un "wizard" simple para docentes:
+# en base a preguntas binarias recomienda el tipo de gráfico y
+# algunas opciones (por ejemplo, distribución hist vs box).
+#
+# Funciones clave:
+# - assistant_recommendation(): devuelve `plot_type` + settings sugeridos
+# - assistant_*(): helpers para mostrar label/razón/qué entrega
+# ------------------------------------------------------------
+
 assistant_plot_label <- function(plot_type) {
   switch(
     plot_type,

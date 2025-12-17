@@ -1,3 +1,13 @@
+# ------------------------------------------------------------
+# Estilos, palettes y facets
+#
+# Este módulo concentra decisiones visuales:
+# - Presets de tema (UI con bslib + plots con ggplot2::theme_*)
+# - Paletas de color para fill/color
+# - Facets (row/col) y labels de ejes/títulos
+# - Helpers de exportación (nombres de archivo, ggsave)
+# ------------------------------------------------------------
+
 available_palettes <- function() {
   c(
     "Okabe-Ito",
